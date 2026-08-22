@@ -124,6 +124,11 @@ cmd_pack() {
   [ -e "$out" ] && die "output dir already exists: $out"
   mkdir -p "$out"
 
+  # Advertise whichever repo this wrapper came from — forks point at themselves.
+  local wrap_url
+  wrap_url="$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null | sed -e 's|^git@github.com:|https://github.com/|' -e 's|\.git$||' || true)"
+  [ -n "$wrap_url" ] || wrap_url="<pi-profile wrapper repo>"
+
   # Whitelist copy — real files only; credentials/state live behind symlinks
   # and portable_cp skips those, so they cannot leak into the bundle.
   copy_portable "$dir" "$out"
@@ -132,7 +137,7 @@ cmd_pack() {
 # pi profile: $name
 
 A shareable config profile for the [pi coding agent](https://github.com/earendil-works/pi), installed with
-the pi-profile wrapper: https://github.com/AdrianTJ/pi-profiles
+the pi-profile wrapper: $wrap_url
 
 ## Install
 

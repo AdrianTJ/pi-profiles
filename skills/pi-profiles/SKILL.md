@@ -20,12 +20,16 @@ Then verify: `pi-profile list`, and launch `pi-profile <name>` once so the
 packages declared in its settings.json fetch. Credentials are symlinked from
 `~/.pi/agent/` automatically — never copy `auth.json` or `models-store.json`.
 
-If the wrapper itself is missing:
+If the wrapper itself is missing, install it from the repository this skill
+ships in — this file lives at `<repo>/skills/pi-profiles/SKILL.md`, so the
+wrapper script is two directories up:
 
 ```sh
-git clone https://github.com/AdrianTJ/pi-profiles ~/.pi/pi-profiles
-mkdir -p ~/.local/bin && ln -s ~/.pi/pi-profiles/bin/pi-profile ~/.local/bin/pi-profile
+ln -s <this-repo>/bin/pi-profile ~/.local/bin/pi-profile
 ```
+
+If that repo isn't available locally, ask the user for its URL, then
+`git clone <url>` and symlink as above.
 
 ## Pack and publish a profile
 

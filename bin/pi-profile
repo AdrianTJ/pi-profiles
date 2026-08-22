@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# pi-profile — run pi against a per-profile config dir, with shared session history.
+#
+# A profile is a full pi config directory (~/.pi/profiles/<name>), isolated via
+# PI_CODING_AGENT_DIR. Sessions stay shared via PI_CODING_AGENT_SESSION_DIR.
+#
+# Usage:
+#   pi-profile                 interactive profile picker
+#   pi-profile list            list profiles
+#   pi-profile create <name> [--from <name>|--from base]
+#   pi-profile <name> [pi args...]
+#   pi-profile help
+#
+# Shared into every profile at create time (symlinks, never copies):
+#   auth.json models-store.json AGENTS.md trust.json
+# Everything else (settings.json, skills/, extensions/, APPEND_SYSTEM.md) is
+# per-profile. Add more sharing manually: ln -s ~/.pi/agent/<item> ~/.pi/profiles/<name>/
+
+set -euo pipefail
+
+PROFILES_ROOT="${PI_PROFILES_ROOT:-$HOME/.pi/profiles}"
+BASE_DIR="${PI_PROFILE_BASE_DIR:-$HOME/.pi/agent}"
+SHARED_SESSIONS="${PI_PROFILE_SESSIONS:-$BASE_DIR/sessions}"
+# ponytail: fixed share list; promote to a config file if it keeps growing
+SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json)
+
+die() { echo "pi-profile: $*" >&2; exit 1; }
+list_profiles() { [ -d "$PROFILES_ROOT" ] && ls -1 "$PROFILES_ROOT" || true; }
+
+cmd_create() {
+  local name="" from=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --from) from="$2"; shift 2 ;;
+      *) [ -z "$name" ] || die "unexpected argument: $1"; name="$1"; shift ;;
+    esac
+  done
+  [ -n "$name" ] || die "usage: pi-profile create <name> [--from <name>|--from base]"
+  [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]] || die "profile name may contain only letters, digits, - and _"
+  local dir="$PROFILES_ROOT/$name"
+  [ -e "$dir" ] && die "profile already exists: $name"
+
+  mkdir -p "$dir/skills" "$dir/extensions"
+
+  # Share credentials and global instructions by symlink — never copy secrets.
+  local item
+  for item in "${SHARED_ITEMS[@]}"; do
+    if [ -e "$BASE_DIR/$item" ]; then
+      ln -s "$BASE_DIR/$item" "$dir/$item"
+    fi
+  done
+
+  case "$from" in
+    "") printf '{}\n' > "$dir/settings.json" ;;
+    base) cp "$BASE_DIR/settings.json" "$dir/settings.json" ;;
+    *)
+      [ -d "$PROFILES_ROOT/$from" ] || die "no such profile to copy from: $from"
+      cp "$PROFILES_ROOT/$from/settings.json" "$dir/settings.json"
+      ;;
+  esac
+
+  echo "Created profile '$name' at $dir"
+  echo "Customize: $dir/settings.json, $dir/skills/, $dir/extensions/"
+}
+
+cmd_pick_and_run() {
+  local profiles
+  profiles="$(list_profiles)"
+  [ -n "$profiles" ] || die "no profiles yet — create one: pi-profile create <name>"
+
+  local choice
+  if command -v fzf >/dev/null 2>&1; then
+    choice="$(echo "$profiles" | fzf --prompt='pi profile: ')" || exit 0
+  else
+    select choice in $profiles; do [ -n "$choice" ] && break; done
+    [ -n "${choice:-}" ] || exit 0
+  fi
+  exec_profile "$choice"
+}
+
+exec_profile() {
+  local name="$1"; shift
+  local dir="$PROFILES_ROOT/$name"
+  [ -d "$dir" ] || { echo "no such profile: $name (see: pi-profile list)" >&2; exit 1; }
+  command -v pi >/dev/null 2>&1 || die "pi not found on PATH"
+  export PI_CODING_AGENT_DIR="$dir"
+  export PI_CODING_AGENT_SESSION_DIR="$SHARED_SESSIONS"
+  exec pi "$@"
+}
+
+case "${1:-}" in
+  help|-h|--help|"")
+    if [ -z "${1:-}" ] && [ -t 0 ]; then cmd_pick_and_run; exit 0; fi
+    sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+  list) list_profiles ;;
+  create) shift; cmd_create "$@" ;;
+  -*|*) # flags meant for pi itself with no profile? require explicit default profile instead
+    die "first argument must be a profile name (see: pi-profile list)" ;;
+  *) exec_profile "$@" ;;
+esac

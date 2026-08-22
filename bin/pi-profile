@@ -117,7 +117,7 @@ cmd_create() {
 
 cmd_pack() {
   local name="${1:-}" out="${2:-}"
-  [ -n "$name" ] && [ -z "${3:-}" ] || die "usage: pi-profile pack <name> [outdir]"
+  if [ -z "$name" ] || [ -n "${3:-}" ]; then die "usage: pi-profile pack <name> [outdir]"; fi
   local dir="$PROFILES_ROOT/$name"
   [ -d "$dir" ] || die "no such profile: $name"
   out="${out:-$PWD/$name}"
@@ -159,7 +159,7 @@ EOF
 
 cmd_install() {
   local src="${1:-}" name="${2:-}"
-  [ -n "$src" ] && [ -z "${3:-}" ] || die "usage: pi-profile install <owner>/<repo>|<dir> [name]"
+  if [ -z "$src" ] || [ -n "${3:-}" ]; then die "usage: pi-profile install <owner>/<repo>|<dir> [name]"; fi
 
   local tmp=""
   if [ -d "$src" ]; then

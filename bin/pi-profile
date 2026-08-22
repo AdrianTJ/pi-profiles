@@ -46,11 +46,22 @@ portable_cp() {
   [ -L "$src" ] && return 0
   if [ -f "$src" ]; then cp "$src" "$dst"; return 0; fi
   mkdir -p "$dst"
-  for entry in "$src"/* "$src"/.[!.]*; do
+  for entry in "$src"/*; do
     [ -e "$entry" ] || continue
     [ -L "$entry" ] && continue
     if [ -d "$entry" ]; then portable_cp "$entry" "$dst/$(basename "$entry")"
     else cp "$entry" "$dst/"; fi
+  done
+}
+
+# Copy the portable whitelist from a profile or bundle dir into dst.
+copy_portable() {
+  local src="$1" dst="$2" item
+  for item in "${PORTABLE_FILES[@]}"; do
+    [ -f "$src/$item" ] && [ ! -L "$src/$item" ] && cp "$src/$item" "$dst/"
+  done
+  for item in "${PORTABLE_DIRS[@]}"; do
+    [ -d "$src/$item" ] && portable_cp "$src/$item" "$dst/$item"
   done
 }
 
@@ -115,24 +126,18 @@ cmd_pack() {
 
   # Whitelist copy — real files only; credentials/state live behind symlinks
   # and portable_cp skips those, so they cannot leak into the bundle.
-  local item
-  for item in "${PORTABLE_FILES[@]}"; do
-    [ -f "$dir/$item" ] && [ ! -L "$dir/$item" ] && cp "$dir/$item" "$out/"
-  done
-  for item in "${PORTABLE_DIRS[@]}"; do
-    [ -d "$dir/$item" ] && portable_cp "$dir/$item" "$out/$item"
-  done
+  copy_portable "$dir" "$out"
 
   cat > "$out/README.md" <<EOF
 # pi profile: $name
 
-A shareable config profile for the [pi coding agent](https://pi.dev), installed with the
-pi-profile wrapper: https://github.com/YOUR_USER/pi-profiles
+A shareable config profile for the [pi coding agent](https://pi.dev), installed with
+the pi-profile wrapper: https://github.com/AdrianTJ/pi-profiles
 
 ## Install
 
 \`\`\`sh
-pi-profile install YOUR_USER/THIS_REPO   # after pushing this folder to GitHub
+pi-profile install <owner>/<this-repo-name>
 \`\`\`
 
 Packages declared in settings.json are re-fetched from npm/git on first launch —
@@ -173,13 +178,8 @@ cmd_install() {
   [ -e "$PROFILES_ROOT/$name" ] && die "profile already exists: $name"
 
   init_profile_dir "$name"
-  local dir="$PROFILES_ROOT/$name" item
-  for item in "${PORTABLE_FILES[@]}"; do
-    [ -f "$src/$item" ] && cp "$src/$item" "$dir/"
-  done
-  for item in "${PORTABLE_DIRS[@]}"; do
-    [ -d "$src/$item" ] && portable_cp "$src/$item" "$dir/$item"
-  done
+  local dir="$PROFILES_ROOT/$name"
+  copy_portable "$src" "$dir"
   [ -f "$dir/settings.json" ] || printf '{}\n' > "$dir/settings.json"
   [ -n "$tmp" ] && rm -rf "$tmp"
 

@@ -1,6 +1,6 @@
 # pi-profile
 
-Per-profile config directories for the [pi coding agent](https://pi.dev), with shared session history.
+Per-profile config directories for the [pi coding agent](https://github.com/earendil-works/pi), with shared session history.
 
 A profile is a complete pi config dir (`~/.pi/profiles/<name>`) activated with
 `PI_CODING_AGENT_DIR`. Skills, extensions, packages, `settings.json`,

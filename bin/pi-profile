@@ -131,7 +131,7 @@ cmd_pack() {
   cat > "$out/README.md" <<EOF
 # pi profile: $name
 
-A shareable config profile for the [pi coding agent](https://pi.dev), installed with
+A shareable config profile for the [pi coding agent](https://github.com/earendil-works/pi), installed with
 the pi-profile wrapper: https://github.com/AdrianTJ/pi-profiles
 
 ## Install

@@ -79,7 +79,7 @@ init_profile_dir() {
 }
 
 die() { echo "pi-profile: $*" >&2; exit 1; }
-list_profiles() { [ -d "$PROFILES_ROOT" ] && ls -1 "$PROFILES_ROOT" || true; }
+list_profiles() { if [ -d "$PROFILES_ROOT" ]; then ls -1 "$PROFILES_ROOT"; fi; }
 
 cmd_create() {
   local name="" from=""

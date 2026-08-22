@@ -6,7 +6,7 @@ description: Install, pack, or publish shareable pi coding-agent profiles with t
 # pi profiles
 
 Profiles are full pi config dirs under `~/.pi/profiles/<name>`, activated via
-the `pi-profile` wrapper (https://github.com/AdrianTJ/pi-profiles). The wrapper
+the `pi-profile` wrapper (run `pi-profile help` for its usage). The wrapper
 is the only installer — never hand-copy profile dirs.
 
 ## Install a shared profile

@@ -37,6 +37,10 @@ Per-profile: `settings.json` (packages/extensions live here), `skills/`,
 ln -s ~/.pi/agent/skills/deslop ~/.pi/profiles/work/skills/deslop
 ```
 
+New profiles automatically get the `profile-badge` extension (shows the active
+profile name, e.g. `[work]`, in the footer). It reads `PI_CODING_AGENT_DIR`, so
+it stays silent when pi runs without the wrapper.
+
 ## Notes
 
 - `~/.agents/skills/` is discovered globally by pi in every profile (by design —

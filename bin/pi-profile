@@ -18,6 +18,16 @@
 
 set -euo pipefail
 
+# Resolve real path through symlinks (~/.local/bin/pi-profile → repo).
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR=$(cd "$(dirname "$SOURCE")" && pwd)
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_DIR=$(cd "$(dirname "$SOURCE")/.." && pwd)
+BADGE_TS="$REPO_DIR/extensions/profile-badge.ts"
+
 PROFILES_ROOT="${PI_PROFILES_ROOT:-$HOME/.pi/profiles}"
 BASE_DIR="${PI_PROFILE_BASE_DIR:-$HOME/.pi/agent}"
 SHARED_SESSIONS="${PI_PROFILE_SESSIONS:-$BASE_DIR/sessions}"
@@ -51,7 +61,13 @@ cmd_create() {
   done
 
   case "$from" in
-    "") printf '{}\n' > "$dir/settings.json" ;;
+    "")
+      if [ -f "$BADGE_TS" ]; then
+        printf '{"extensions":["%s"]}\n' "$BADGE_TS" > "$dir/settings.json"
+      else
+        printf '{}\n' > "$dir/settings.json"
+      fi
+      ;;
     base) cp "$BASE_DIR/settings.json" "$dir/settings.json" ;;
     *)
       [ -d "$PROFILES_ROOT/$from" ] || die "no such profile to copy from: $from"

@@ -8,6 +8,8 @@
 #   pi-profile                 interactive profile picker
 #   pi-profile list            list profiles
 #   pi-profile create <name> [--from <name>|--from base]
+#   pi-profile pack <name> [outdir]                  export a shareable profile
+#   pi-profile install <owner>/<repo>|<dir> [name]   install a shared profile
 #   pi-profile <name> [pi args...]
 #   pi-profile help
 #
@@ -33,6 +35,37 @@ BASE_DIR="${PI_PROFILE_BASE_DIR:-$HOME/.pi/agent}"
 SHARED_SESSIONS="${PI_PROFILE_SESSIONS:-$BASE_DIR/sessions}"
 # ponytail: fixed share list; promote to a config file if it keeps growing
 SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json)
+# What pack/install copy. Credentials and state are shared by symlink instead —
+# this whitelist is the whole secret-safety story: real files only, never links.
+PORTABLE_FILES=(settings.json APPEND_SYSTEM.md)
+PORTABLE_DIRS=(skills prompts extensions)
+
+# Copy a file/dir tree skipping symlinks entirely (never copy or follow them).
+portable_cp() {
+  local src="$1" dst="$2" entry
+  [ -L "$src" ] && return 0
+  if [ -f "$src" ]; then cp "$src" "$dst"; return 0; fi
+  mkdir -p "$dst"
+  for entry in "$src"/* "$src"/.[!.]*; do
+    [ -e "$entry" ] || continue
+    [ -L "$entry" ] && continue
+    if [ -d "$entry" ]; then portable_cp "$entry" "$dst/$(basename "$entry")"
+    else cp "$entry" "$dst/"; fi
+  done
+}
+
+init_profile_dir() {
+  local name="$1"
+  mkdir -p "$PROFILES_ROOT/$name/skills" "$PROFILES_ROOT/$name/extensions"
+
+  # Share credentials and global instructions by symlink — never copy secrets.
+  local item
+  for item in "${SHARED_ITEMS[@]}"; do
+    if [ -e "$BASE_DIR/$item" ]; then
+      ln -s "$BASE_DIR/$item" "$PROFILES_ROOT/$name/$item"
+    fi
+  done
+}
 
 die() { echo "pi-profile: $*" >&2; exit 1; }
 list_profiles() { [ -d "$PROFILES_ROOT" ] && ls -1 "$PROFILES_ROOT" || true; }
@@ -50,15 +83,7 @@ cmd_create() {
   local dir="$PROFILES_ROOT/$name"
   [ -e "$dir" ] && die "profile already exists: $name"
 
-  mkdir -p "$dir/skills" "$dir/extensions"
-
-  # Share credentials and global instructions by symlink — never copy secrets.
-  local item
-  for item in "${SHARED_ITEMS[@]}"; do
-    if [ -e "$BASE_DIR/$item" ]; then
-      ln -s "$BASE_DIR/$item" "$dir/$item"
-    fi
-  done
+  init_profile_dir "$name"
 
   case "$from" in
     "")
@@ -77,6 +102,89 @@ cmd_create() {
 
   echo "Created profile '$name' at $dir"
   echo "Customize: $dir/settings.json, $dir/skills/, $dir/extensions/"
+}
+
+cmd_pack() {
+  local name="${1:-}" out="${2:-}"
+  [ -n "$name" ] && [ -z "${3:-}" ] || die "usage: pi-profile pack <name> [outdir]"
+  local dir="$PROFILES_ROOT/$name"
+  [ -d "$dir" ] || die "no such profile: $name"
+  out="${out:-$PWD/$name}"
+  [ -e "$out" ] && die "output dir already exists: $out"
+  mkdir -p "$out"
+
+  # Whitelist copy — real files only; credentials/state live behind symlinks
+  # and portable_cp skips those, so they cannot leak into the bundle.
+  local item
+  for item in "${PORTABLE_FILES[@]}"; do
+    [ -f "$dir/$item" ] && [ ! -L "$dir/$item" ] && cp "$dir/$item" "$out/"
+  done
+  for item in "${PORTABLE_DIRS[@]}"; do
+    [ -d "$dir/$item" ] && portable_cp "$dir/$item" "$out/$item"
+  done
+
+  cat > "$out/README.md" <<EOF
+# pi profile: $name
+
+A shareable config profile for the [pi coding agent](https://pi.dev), installed with the
+pi-profile wrapper: https://github.com/YOUR_USER/pi-profiles
+
+## Install
+
+\`\`\`sh
+pi-profile install YOUR_USER/THIS_REPO   # after pushing this folder to GitHub
+\`\`\`
+
+Packages declared in settings.json are re-fetched from npm/git on first launch —
+nothing here is vendored.
+
+## Notes
+
+- Credentials (auth.json, models-store.json) are deliberately not included;
+  they are symlinked from your global config at install time.
+- Extension entries in settings.json pointing at absolute local paths won't
+  resolve on other machines. Publish those extensions as npm/git packages.
+- Trust model: installing a profile runs its declared packages, same as any
+  npm install. Read settings.json before installing someone else's profile.
+EOF
+
+  echo "Packed '$name' → $out"
+  echo "Publish: cd $out && git init -b main && git add -A && git commit -m 'pack: $name' && git push"
+}
+
+cmd_install() {
+  local src="${1:-}" name="${2:-}"
+  [ -n "$src" ] && [ -z "${3:-}" ] || die "usage: pi-profile install <owner>/<repo>|<dir> [name]"
+
+  local tmp=""
+  if [ -d "$src" ]; then
+    # Local path — also how packed profiles get tested before pushing.
+    [ -z "$name" ] && { name="$(basename "$src")"; }
+  else
+    command -v git >/dev/null || die "git is required to install from GitHub"
+    src="${src#*github.com/}"; src="${src%.git}"
+    [[ "$src" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || die "expected <owner>/<repo> or a local dir, got: ${1}"
+    [ -z "$name" ] && { name="${src##*/}"; name="${name#pi-}"; }
+    tmp="$(mktemp -d)"
+    git clone -q --depth 1 "https://github.com/$src.git" "$tmp/src" || { rm -rf "$tmp"; die "clone failed: $src"; }
+    src="$tmp/src"
+  fi
+  [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]] || die "profile name may contain only letters, digits, - and _"
+  [ -e "$PROFILES_ROOT/$name" ] && die "profile already exists: $name"
+
+  init_profile_dir "$name"
+  local dir="$PROFILES_ROOT/$name" item
+  for item in "${PORTABLE_FILES[@]}"; do
+    [ -f "$src/$item" ] && cp "$src/$item" "$dir/"
+  done
+  for item in "${PORTABLE_DIRS[@]}"; do
+    [ -d "$src/$item" ] && portable_cp "$src/$item" "$dir/$item"
+  done
+  [ -f "$dir/settings.json" ] || printf '{}\n' > "$dir/settings.json"
+  [ -n "$tmp" ] && rm -rf "$tmp"
+
+  echo "Installed as profile '$name' at $dir"
+  echo "Launch: pi-profile $name   (packages fetch on first run)"
 }
 
 cmd_pick_and_run() {
@@ -107,9 +215,11 @@ exec_profile() {
 case "${1:-}" in
   help|-h|--help|"")
     if [ -z "${1:-}" ] && [ -t 0 ]; then cmd_pick_and_run; exit 0; fi
-    sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
     ;;
   list) list_profiles ;;
   create) shift; cmd_create "$@" ;;
+  pack) shift; cmd_pack "$@" ;;
+  install) shift; cmd_install "$@" ;;
   *) exec_profile "$@" ;;  # anything else: first arg must be a profile name
 esac

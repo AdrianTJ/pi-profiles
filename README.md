@@ -20,10 +20,34 @@ pi-profile list                 # show profiles
 pi-profile create work          # new empty profile (shares auth + global AGENTS.md)
 pi-profile create web --from work   # clone an existing profile's settings
 pi-profile create min --from base   # copy your main ~/.pi/agent/settings.json
+pi-profile pack web ./pi-web        # export a shareable profile folder
+pi-profile install you/pi-web       # install a shared profile (GitHub or local dir)
 pi-profile                      # pick a profile (fzf if installed)
 pi-profile work                 # launch pi in the 'work' profile
 alias piwork='pi-profile work'  # optional per-profile aliases
 ```
+
+## Sharing profiles
+
+A profile's portable content is small — settings.json (which declares its
+packages), skills, prompts, APPEND_SYSTEM.md. `pack` copies exactly that
+whitelist into a folder you push to GitHub; `install` clones any such repo into
+a new local profile and re-symlinks your credentials. Packages re-fetch from
+npm/git on first launch, so nothing is vendored.
+
+```sh
+pi-profile pack web ./pi-web     # → push ./pi-web to a new GitHub repo
+cd pi-web && git init -b main && git add -A && git commit -m 'pack: web'
+
+pi-profile install someone/pi-web   # anyone can install it
+pi-profile install ./pi-web mine    # local dirs work too — test before pushing
+```
+
+Secrets can't leak into a bundle: profiles hold credentials as symlinks and
+pack copies real files only. Extension entries pointing at absolute local
+paths (e.g. profile-badge) won't resolve on other machines — publish those as
+packages instead. Installing a profile runs its declared packages, same trust
+model as `npm install`.
 
 ## What's in a profile
 

@@ -95,7 +95,5 @@ case "${1:-}" in
     ;;
   list) list_profiles ;;
   create) shift; cmd_create "$@" ;;
-  -*|*) # flags meant for pi itself with no profile? require explicit default profile instead
-    die "first argument must be a profile name (see: pi-profile list)" ;;
-  *) exec_profile "$@" ;;
+  *) exec_profile "$@" ;;  # anything else: first arg must be a profile name
 esac

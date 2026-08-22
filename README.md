@@ -39,6 +39,10 @@ ln -s ~/.pi/agent/skills/deslop ~/.pi/profiles/work/skills/deslop
 
 ## Notes
 
+- `~/.agents/skills/` is discovered globally by pi in every profile (by design —
+  it's the cross-harness skill location). Profile isolation covers pi-specific
+  config: `~/.pi/profiles/<name>/{settings.json,skills,extensions,...}`.
+
 - Session files are keyed by working directory, so "shared" history means
   shared *per project* — resume a project's thread from any profile.
 - Project-local `.pi/` still loads on top, as usual.

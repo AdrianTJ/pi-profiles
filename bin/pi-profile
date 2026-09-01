@@ -175,12 +175,17 @@ cmd_install() {
     src="${src#*github.com/}"; src="${src%.git}"
     [[ "$src" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || die "expected <owner>/<repo> or a local dir, got: ${1}"
     [ -z "$name" ] && { name="${src##*/}"; name="${name#pi-}"; }
+  fi
+  # Validate the name and target before cloning so a rejected install doesn't
+  # leave a temp clone behind.
+  [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]] || die "profile name may contain only letters, digits, - and _"
+  [ -e "$PROFILES_ROOT/$name" ] && die "profile already exists: $name"
+
+  if [ ! -d "$src" ]; then
     tmp="$(mktemp -d)"
     git clone -q --depth 1 "https://github.com/$src.git" "$tmp/src" || { rm -rf "$tmp"; die "clone failed: $src"; }
     src="$tmp/src"
   fi
-  [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]] || die "profile name may contain only letters, digits, - and _"
-  [ -e "$PROFILES_ROOT/$name" ] && die "profile already exists: $name"
 
   init_profile_dir "$name"
   local dir="$PROFILES_ROOT/$name"

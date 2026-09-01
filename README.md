@@ -74,6 +74,8 @@ it stays silent when pi runs without the wrapper.
 - Session files are keyed by working directory, so "shared" history means
   shared *per project* — resume a project's thread from any profile.
 - Project-local `.pi/` still loads on top, as usual.
+- `pack` copies real files only, so anything you symlinked into a profile
+  (skills, extensions) is left out of the bundle — copy the files in instead.
 - If pi grows built-in profile support (see earendil-works/pi#3966), migrate by
   moving `~/.pi/profiles/*` contents accordingly.
 

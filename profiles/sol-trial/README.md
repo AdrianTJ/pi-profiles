@@ -20,14 +20,3 @@ nothing here is vendored.
   resolve on other machines. Publish those extensions as npm/git packages.
 - Trust model: installing a profile runs its declared packages, same as any
   npm install. Read settings.json before installing someone else's profile.
-
-## SoL-Pi config
-
-This profile ships `sol-pi.json` (conservative: Action Fusion +
-ObservationPack on, reducer + context compact off). `pi-profile install`
-does not copy it — place it in the profile dir after installing:
-
-```sh
-pi-profile install <this-repo> sol-trial
-cp profiles/sol-trial/sol-pi.json ~/.pi/profiles/sol-trial/sol-pi.json
-```

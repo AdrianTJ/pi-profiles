@@ -1,0 +1,20 @@
+{
+  "lastChangelogVersion": "0.84.4",
+  "theme": "light/dark",
+  "defaultProvider": "openrouter",
+  "defaultModel": "deepseek/deepseek-v4-flash-0731",
+  "defaultThinkingLevel": "medium",
+  "packages": [
+    "npm:@bacnh85/pi-fff",
+    "npm:@jqwn/pi-ask-user-question",
+    "npm:@narumitw/pi-btw",
+    "npm:@dietrichgebert/ponytail",
+    "npm:pi-subagents-lite",
+    "npm:pi-tasks",
+    "npm:pi-web-lite",
+    "npm:@lnilluv/pi-ralph-loop",
+    "npm:@xbear/pi-goal",
+    "npm:pi-nolo",
+    "git:github.com/NVlabs/SoL-Pi"
+  ]
+}

@@ -37,7 +37,9 @@ SHARED_SESSIONS="${PI_PROFILE_SESSIONS:-$BASE_DIR/sessions}"
 SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json)
 # What pack/install copy. Credentials and state are shared by symlink instead —
 # this whitelist is the whole secret-safety story: real files only, never links.
-PORTABLE_FILES=(settings.json APPEND_SYSTEM.md)
+# New root-level configs (e.g. sol-pi.json) get an explicit entry here, never a
+# wildcard, so a future credential file can never match by accident.
+PORTABLE_FILES=(settings.json APPEND_SYSTEM.md sol-pi.json)
 PORTABLE_DIRS=(skills prompts extensions)
 
 # Copy a file/dir tree skipping symlinks entirely (never copy or follow them).

@@ -21,6 +21,8 @@ assert_not() { [ ! -e "$1" ] || fail "should not exist: $1"; }
 echo 'custom' > "$PI_PROFILES_ROOT/web/APPEND_SYSTEM.md"
 mkdir -p "$PI_PROFILES_ROOT/web/skills/mine"
 echo 'skill' > "$PI_PROFILES_ROOT/web/skills/mine/SKILL.md"
+echo '{"version":1}' > "$PI_PROFILES_ROOT/web/sol-pi.json"
+echo 'decoy' > "$PI_PROFILES_ROOT/web/custom.json"
 # (create already symlinked auth.json from base)
 
 # --- pack: portable files in, secrets out
@@ -29,13 +31,16 @@ assert    "$root/packed/settings.json"
 assert    "$root/packed/APPEND_SYSTEM.md"
 assert    "$root/packed/skills/mine/SKILL.md"
 assert    "$root/packed/README.md"
+assert    "$root/packed/sol-pi.json"
 assert_not "$root/packed/auth.json"
+assert_not "$root/packed/custom.json"
 [ -z "$(find "$root/packed" -type l)" ] || fail "packed bundle contains a symlink"
 
 # --- install from local dir: fresh profile, credentials re-symlinked
 "$WRAP" install "$root/packed" clone >/dev/null
 assert "$PI_PROFILES_ROOT/clone/settings.json"
 assert "$PI_PROFILES_ROOT/clone/skills/mine/SKILL.md"
+assert "$PI_PROFILES_ROOT/clone/sol-pi.json"
 [ -L "$PI_PROFILES_ROOT/clone/auth.json" ] || fail "auth.json not re-symlinked at install"
 diff "$PI_PROFILES_ROOT/clone/settings.json" "$root/packed/settings.json" || fail "settings.json altered in transit"
 

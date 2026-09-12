@@ -3,9 +3,11 @@
 Per-profile config directories for the [pi coding agent](https://github.com/earendil-works/pi), with shared session history.
 
 A profile is a complete pi config dir (`~/.pi/profiles/<name>`) activated with
-`PI_CODING_AGENT_DIR`. Skills, extensions, packages, `settings.json`,
-`APPEND_SYSTEM.md` — everything is isolated per profile. Sessions stay shared via
-`PI_CODING_AGENT_SESSION_DIR`, so `/resume` sees all history from any profile.
+`PI_CODING_AGENT_DIR`. Packages, `skills/`, `settings.json` and
+`APPEND_SYSTEM.md` are isolated per profile, while `extensions/` is shared with
+the base agent dir (see [What's in a profile](#whats-in-a-profile)). Sessions stay
+shared via `PI_CODING_AGENT_SESSION_DIR`, so `/resume` sees all history from any
+profile.
 
 ## Install
 
@@ -53,14 +55,24 @@ model as `npm install`.
 ## What's in a profile
 
 Shared at creation (symlinked, never copied — secrets stay in one place):
-`auth.json`, `models-store.json`, `AGENTS.md`, `trust.json`.
+`auth.json`, `models-store.json`, `AGENTS.md`, `trust.json`, `extensions/`.
 
-Per-profile: `settings.json` (packages/extensions live here), `skills/`,
-`extensions/`, and any other pi config file. To share more, symlink it yourself:
+`extensions/` is shared because tools install their own files into the base agent
+dir (Orca's managed status extension, for example) and Pi only discovers
+extensions under the active agent dir. A private `extensions/` directory means a
+profile silently loads none of them, which is how profile sessions end up missing
+status reporting.
+
+Per-profile: `settings.json` (packages and absolute-path extensions live here),
+`skills/`, and any other pi config file. To share more, symlink it yourself:
 
 ```sh
 ln -s ~/.pi/agent/skills/deslop ~/.pi/profiles/work/skills/deslop
 ```
+
+To give one profile extensions of its own, replace its `extensions` symlink with a
+real directory and symlink the base files you want back in. `pack` skips symlinks,
+so the shared directory never ends up in a published bundle.
 
 New profiles automatically get the `profile-badge` extension (shows the active
 profile name, e.g. `[work]`, in the footer). It reads `PI_CODING_AGENT_DIR`, so

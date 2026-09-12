@@ -7,8 +7,9 @@ pi-profile install <this-repo> marathon    # campaign profile
 pi-profile install <this-repo> sol-trial   # efficiency trial profile
 ```
 
-`install` copies the portable whitelist (`settings.json`, `APPEND_SYSTEM.md`).
-Anything beside it must be placed by hand — see per-profile notes. Packages
+`install` copies the portable whitelist (`settings.json`, `APPEND_SYSTEM.md`,
+`sol-pi.json`, `skills/`, `prompts/`, `extensions/`). Anything beside it must be
+placed by hand — see per-profile notes. Packages
 re-fetch from npm/git on first launch. After installing, verify with a
 trivial headless run before trusting a campaign to it.
 
@@ -64,12 +65,8 @@ Same stack as marathon plus NVIDIA's
 off. Use it for long **single sessions** (no loops needed) — that is what
 SoL-Pi is built for.
 
-Extra install step — `sol-pi.json` is outside `pi-profile pack`'s whitelist,
-so copy it by hand after installing:
-
-```sh
-cp profiles/sol-trial/sol-pi.json ~/.pi/profiles/sol-trial/sol-pi.json
-```
+`sol-pi.json` is inside `pi-profile pack`'s whitelist, so installing the profile
+ships it automatically — no manual copy step.
 
 Config resolution is profile-scoped (verified in SoL-Pi source: it resolves
 via `getAgentDir()`), so nothing leaks into base. Provenance and trial notes

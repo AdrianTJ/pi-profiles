@@ -68,8 +68,8 @@ This profile used to be the marathon stack plus SoL-Pi. That was a mistake, and
 it invalidated the first trial: the extra packages changed what was being
 measured. `pi-nolo` re-registers the builtin `edit` tool, holds the `edit` slot
 ahead of SoL-Pi, and drops Action Fusion's `then_run` parameter, so fusion never
-fired on `edit` calls for the entire trial. The old profile is preserved as
-`sol-marathon`, and this one declares only SoL-Pi.
+fired on `edit` calls for the entire trial. That profile is deleted, and this one
+declares only SoL-Pi.
 
 Never load `pi-nolo` next to SoL-Pi: both register `edit` and the first one loaded
 keeps the slot, on 0.84.2 and 0.85.1 alike. The same goes for any extension that

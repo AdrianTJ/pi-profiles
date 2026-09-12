@@ -11,7 +11,6 @@
     "npm:pi-subagents-lite",
     "npm:pi-web-lite",
     "npm:pi-goal-x",
-    "npm:@juicesharp/rpiv-todo",
-    "git:github.com/earendil-works/pi-transcribe"
+    "npm:@juicesharp/rpiv-todo"
   ]
 }

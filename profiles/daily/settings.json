@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.4",
+  "lastChangelogVersion": "0.85.1",
   "theme": "light/dark",
   "defaultProvider": "openrouter",
   "defaultModel": "deepseek/deepseek-v4-flash-0731",
@@ -10,8 +10,8 @@
     "npm:@narumitw/pi-btw",
     "npm:pi-subagents-lite",
     "npm:pi-web-lite",
-    "npm:pi-dictate",
     "npm:pi-goal-x",
-    "npm:@juicesharp/rpiv-todo"
+    "npm:@juicesharp/rpiv-todo",
+    "git:github.com/earendil-works/pi-transcribe"
   ]
 }

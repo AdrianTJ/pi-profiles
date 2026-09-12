@@ -3,7 +3,7 @@
   "backend": {
     "type": "transcribe-cpp"
   },
-  "shortcut": "ctrl+alt+shift+super+space",
+  "shortcut": "ctrl+shift+alt+super+a",
   "preferredLanguages": [
     "en"
   ],

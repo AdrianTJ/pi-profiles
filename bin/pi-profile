@@ -6,7 +6,8 @@
 #
 # Usage:
 #   pi-profile                 interactive profile picker
-#   pi-profile list            list profiles with their one-line description
+#   pi-profile list            what each profile is for and what it installs
+#   pi-profile list -1         the same list, one line per profile
 #   pi-profile show <name>     print a profile's full description
 #   pi-profile create <name> [--from <name>|--from base]
 #   pi-profile pack <name> [outdir]                  export a shareable profile
@@ -112,8 +113,32 @@ write_starter_description() {
 
 One line on what this profile is for and when to reach for it instead of another one.
 
-Installed: the packages and skills that make it different.
+Use it when: the situation that should make you pick this profile.
 EOF
+}
+
+# Live inventory, read from the profile at list time so it cannot drift from what
+# is actually installed. One array per call, flattened by tr. No jq/python here:
+# the wrapper otherwise has no dependencies beyond bash and git.
+json_array() { # file key
+  [ -f "$1" ] || return 0
+  tr -d '\n' < "$1" | sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p" |
+    tr ',' '\n' | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//' | grep . || true
+}
+
+profile_inventory() { # name
+  local dir="$PROFILES_ROOT/$1" pkgs skills cfg f
+  # paste -d takes one char per column, so join on a comma and space it afterwards.
+  pkgs="$(json_array "$dir/settings.json" packages | sed 's/^npm://' | paste -sd ',' - | sed 's/,/, /g')"
+  printf '  packages: %s\n' "${pkgs:-none}"
+  skills="$(ls -1 "$dir/skills" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')"
+  [ -n "$skills" ] && printf '  skills:   %s\n' "$skills"
+  cfg=""
+  for f in APPEND_SYSTEM.md sol-pi.json nolo.json; do
+    [ -f "$dir/$f" ] && cfg="${cfg:+$cfg, }$f"
+  done
+  [ -n "$cfg" ] && printf '  config:   %s\n' "$cfg"
+  return 0
 }
 
 cmd_create() {
@@ -203,9 +228,24 @@ EOF
 
 cmd_list() {
   local name width=0
-  for name in $(list_profiles); do [ ${#name} -gt $width ] && width=${#name}; done
+  if [ "${1:-}" = "-1" ] || [ "${1:-}" = "--short" ]; then
+    for name in $(list_profiles); do [ ${#name} -gt $width ] && width=${#name}; done
+    for name in $(list_profiles); do
+      printf '%-*s  %s\n' "$width" "$name" "$(profile_summary "$name")"
+    done
+    return 0
+  fi
+  local first=1
   for name in $(list_profiles); do
-    printf '%-*s  %s\n' "$width" "$name" "$(profile_summary "$name")"
+    [ $first -eq 1 ] || echo
+    first=0
+    printf '%s — %s\n' "$name" "$(profile_summary "$name")"
+    # Remaining prose: the headline is already printed, and inventory comes live
+    # from the profile, so an "Installed:" line in the file would be duplicated.
+    [ -f "$PROFILES_ROOT/$name/DESCRIPTION.md" ] &&
+      awk 'NF && $0 !~ /^#/ { n++; if (n == 1 || $0 ~ /^Installed:/) next; print "  " $0 }' \
+        "$PROFILES_ROOT/$name/DESCRIPTION.md"
+    profile_inventory "$name"
   done
 }
 
@@ -216,9 +256,12 @@ cmd_show() {
   if [ -f "$PROFILES_ROOT/$name/DESCRIPTION.md" ]; then
     cat "$PROFILES_ROOT/$name/DESCRIPTION.md"
   else
-    echo "$name: $(profile_summary "$name")"
-    echo "(add $PROFILES_ROOT/$name/DESCRIPTION.md to describe it)"
+    echo "# $name"
+    echo
+    echo "no description yet ($PROFILES_ROOT/$name/DESCRIPTION.md)"
   fi
+  echo
+  profile_inventory "$name"
 }
 
 cmd_install() {
@@ -293,7 +336,7 @@ case "${1:-}" in
     if [ -z "${1:-}" ] && [ -t 0 ]; then cmd_pick_and_run; exit 0; fi
     sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
     ;;
-  list) cmd_list ;;
+  list) shift; cmd_list "$@" ;;
   show) shift; cmd_show "$@" ;;
   create) shift; cmd_create "$@" ;;
   pack) shift; cmd_pack "$@" ;;

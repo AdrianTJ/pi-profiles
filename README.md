@@ -18,7 +18,7 @@ ln -s "$PWD/bin/pi-profile" ~/.local/bin/pi-profile
 ## Usage
 
 ```sh
-pi-profile list                 # profiles with their one-line descriptions
+pi-profile list                 # profiles: purpose, packages, skills, config
 pi-profile show work            # a profile's full description
 pi-profile create work          # new empty profile (shares auth + global AGENTS.md)
 pi-profile create web --from work   # clone an existing profile's settings
@@ -32,10 +32,10 @@ alias piwork='pi-profile work'  # optional per-profile aliases
 
 ## Describing a profile
 
-Every profile can carry a `DESCRIPTION.md`: what it is for, when to reach for it
-instead of another one, and what it installs. Its first non-heading line is the
-summary shown by `pi-profile list` and by the picker, so keep that line short and
-put the detail underneath.
+Every profile carries a `DESCRIPTION.md`: what it is for and when to reach for
+it instead of another one. Its first non-heading line is the summary shown by
+`pi-profile list` and by the picker, so keep that line short and put the detail
+underneath.
 
 ```md
 # web
@@ -43,13 +43,17 @@ put the detail underneath.
 Web scraping and crawling work: playwright plus the fetch tools.
 
 Use it when: the task is mostly reading pages you cannot reach with curl.
-
-Installed: `pi-web-lite`, `@bacnh85/pi-fff`.
 ```
 
-`create` and `install` leave a starter file when there is none, `show` prints it,
-and `pack` carries it into the bundle, so an installed profile keeps its
-description. Profiles without one show up as `no description yet`.
+`list` prints that prose and then the profile's real contents, read from the
+profile itself at list time: declared packages, skills, and config files it
+carries. Nothing to keep in sync by hand, so a description never claims a package
+the profile does not install. `list -1` gives the one-line-per-profile form.
+
+`create` and `install` leave a starter file when there is none, `show` prints the
+description plus the same inventory, and `pack` carries the file into the bundle,
+so an installed profile keeps its description. Profiles without one show up as
+`no description yet`.
 
 ## Sharing profiles
 

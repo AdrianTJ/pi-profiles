@@ -75,6 +75,12 @@ Never load `pi-nolo` next to SoL-Pi: both register `edit` and the first one load
 keeps the slot, on 0.84.2 and 0.85.1 alike. The same goes for any extension that
 re-registers `edit`, `write` or `bash` from Pi's builtin definitions.
 
+Re-measured 2026-09-12 against stock Pi 0.85.1: with a natural prompt the model
+never opts into `then_run` (0 of 6 runs), so the profile is ObservationPack plus
+about 14% extra prompt overhead on small tasks. When the prompt asks for the
+fusion it fires every time and saves a turn (4 to 3 turns, -21.6% and -12.7%
+tokens). Large-context results were too noisy at 3 pairs to call.
+
 `sol-pi.json` is inside `pi-profile pack`'s whitelist, so installing the profile
 ships it automatically — no manual copy step.
 

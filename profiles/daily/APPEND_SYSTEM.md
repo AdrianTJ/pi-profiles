@@ -10,10 +10,10 @@ and every action stays visible.
   `/goal-direct <objective>` when the target is already crisp. Tracked tasks
   and subtasks live with the goal; `/goal-tweak` revises, the completion
   auditor verifies before anything counts as done.
-- Speak instead of typing with `Hyperkey + A` (pi-transcribe) inside pi: toggle,
-  talk, transcript lands in the editor for review before sending. Fully local —
-  audio never leaves the machine; the model and shortcut live in the profile's
-  `pi-transcribe.json`.
+- Speak instead of typing: `Hyperkey + A` (pi-transcribe) inside pi, or
+  `Hyperkey + Space` (Handy) in any app. Both run fully local — audio never
+  leaves the machine. pi-transcribe's model and shortcut live in the profile's
+  `pi-transcribe.json`; Handy's live in its own store.
 - Delegate recon and parallel work via subagents (`/agents`); track task lists
   visibly with `/todos` (rpiv-todo overlay) so multi-step work survives reloads.
 - Risky or exploratory work goes in a git worktree.

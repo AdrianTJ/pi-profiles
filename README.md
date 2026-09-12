@@ -18,7 +18,8 @@ ln -s "$PWD/bin/pi-profile" ~/.local/bin/pi-profile
 ## Usage
 
 ```sh
-pi-profile list                 # show profiles
+pi-profile list                 # profiles: purpose, packages, skills, config
+pi-profile show work            # a profile's full description
 pi-profile create work          # new empty profile (shares auth + global AGENTS.md)
 pi-profile create web --from work   # clone an existing profile's settings
 pi-profile create min --from base   # copy your main ~/.pi/agent/settings.json
@@ -29,11 +30,37 @@ pi-profile work                 # launch pi in the 'work' profile
 alias piwork='pi-profile work'  # optional per-profile aliases
 ```
 
+## Describing a profile
+
+Every profile carries a `DESCRIPTION.md`: what it is for and when to reach for
+it instead of another one. Its first non-heading line is the summary shown by
+`pi-profile list` and by the picker, so keep that line short and put the detail
+underneath.
+
+```md
+# web
+
+Web scraping and crawling work: playwright plus the fetch tools.
+
+Use it when: the task is mostly reading pages you cannot reach with curl.
+```
+
+`list` prints that prose and then the profile's real contents, read from the
+profile itself at list time: declared packages, skills, and config files it
+carries. Nothing to keep in sync by hand, so a description never claims a package
+the profile does not install. `list -1` gives the one-line-per-profile form.
+
+`create` and `install` leave a starter file when there is none, `show` prints the
+description plus the same inventory, and `pack` carries the file into the bundle,
+so an installed profile keeps its description. Profiles without one show up as
+`no description yet`.
+
 ## Sharing profiles
 
 A profile's portable content is small — settings.json (which declares its
-packages), APPEND_SYSTEM.md, sol-pi.json, and the skills/, prompts/, and
-extensions/ directories. `pack` copies exactly that whitelist into a folder you
+packages), DESCRIPTION.md, APPEND_SYSTEM.md, sol-pi.json, and the skills/,
+prompts/, and extensions/ directories. `pack` copies exactly that whitelist into
+a folder you
 push to GitHub; `install` clones any such repo into
 a new local profile and re-symlinks your credentials. Packages re-fetch from
 npm/git on first launch, so nothing is vendored.

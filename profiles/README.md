@@ -1,15 +1,25 @@
 # Profile run guide
 
-Two long-run profiles live here. Both install the same way:
+Two long-run profiles live here. Install one from a local checkout by pointing at
+its directory, since a bundle in this repo is not a repo of its own:
 
 ```sh
-pi-profile install <this-repo> marathon    # campaign profile
-pi-profile install <this-repo> sol-trial   # efficiency trial profile
+pi-profile install ./profiles/marathon marathon    # campaign profile
+pi-profile install ./profiles/SoL-Pi SoL-Pi        # SoL-Pi efficiency profile
 ```
 
-`install` copies the portable whitelist (`settings.json`, `APPEND_SYSTEM.md`,
-`sol-pi.json`, `skills/`, `prompts/`, `extensions/`). Anything beside it must be
-placed by hand — see per-profile notes. Packages
+The GitHub form needs the profile packed and pushed as its own repo first, which
+is what `pack` prepares:
+
+```sh
+pi-profile pack marathon ./pi-marathon
+cd ./pi-marathon && git init -b main && git add -A && git commit -m 'pack: marathon'
+pi-profile install you/pi-marathon marathon
+```
+
+`install` copies the portable whitelist (`settings.json`, `DESCRIPTION.md`,
+`APPEND_SYSTEM.md`, `sol-pi.json`, `skills/`, `prompts/`, `extensions/`). Anything
+beside it must be placed by hand — see per-profile notes. Packages
 re-fetch from npm/git on first launch. After installing, verify with a
 trivial headless run before trusting a campaign to it.
 
@@ -57,7 +67,7 @@ goals, `max_iterations` on loops, blocked/budget-hit/no-progress means
 report-and-stop. Proven: 12→26 tests, 87%→100% coverage, ~15 min, zero
 interventions, zero scope violations.
 
-## sol-trial — SoL-Pi efficiency evaluation (standalone)
+## SoL-Pi — efficiency evaluation (standalone)
 
 NVIDIA's [SoL-Pi](https://github.com/NVlabs/SoL-Pi) (`0.1.0`) and nothing else,
 with conservative `sol-pi.json`: Action Fusion + ObservationPack on, reducer +

@@ -1,4 +1,4 @@
-# pi profile: sol-trial
+# pi profile: SoL-Pi
 
 A shareable config profile for the [pi coding agent](https://github.com/earendil-works/pi), installed with
 the pi-profile wrapper: https://github.com/AdrianTJ/pi-profiles

@@ -6,7 +6,8 @@
 #
 # Usage:
 #   pi-profile                 interactive profile picker
-#   pi-profile list            list profiles
+#   pi-profile list            list profiles with their one-line description
+#   pi-profile show <name>     print a profile's full description
 #   pi-profile create <name> [--from <name>|--from base]
 #   pi-profile pack <name> [outdir]                  export a shareable profile
 #   pi-profile install <owner>/<repo>|<dir> [name]   install a shared profile
@@ -42,7 +43,7 @@ SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json extensions)
 # this whitelist is the whole secret-safety story: real files only, never links.
 # New root-level configs (e.g. sol-pi.json) get an explicit entry here, never a
 # wildcard, so a future credential file can never match by accident.
-PORTABLE_FILES=(settings.json APPEND_SYSTEM.md sol-pi.json)
+PORTABLE_FILES=(settings.json APPEND_SYSTEM.md sol-pi.json DESCRIPTION.md)
 PORTABLE_DIRS=(skills prompts extensions)
 
 # Copy a file/dir tree skipping symlinks entirely (never copy or follow them).
@@ -94,6 +95,27 @@ init_profile_dir() {
 die() { echo "pi-profile: $*" >&2; exit 1; }
 list_profiles() { if [ -d "$PROFILES_ROOT" ]; then ls -1 "$PROFILES_ROOT"; fi; }
 
+# One-line summary shown in lists and the picker: the first non-blank line of
+# DESCRIPTION.md that is not a heading.
+profile_summary() {
+  local file="$PROFILES_ROOT/$1/DESCRIPTION.md"
+  [ -f "$file" ] || { printf 'no description yet\n'; return; }
+  awk 'NF && $0 !~ /^#/ { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print; exit }' "$file"
+}
+
+# Starter file so a new profile shows up in `list` with something to fill in.
+write_starter_description() {
+  local name="$1" dir="$PROFILES_ROOT/$1"
+  [ -f "$dir/DESCRIPTION.md" ] && return 0
+  cat > "$dir/DESCRIPTION.md" <<EOF
+# $name
+
+One line on what this profile is for and when to reach for it instead of another one.
+
+Installed: the packages and skills that make it different.
+EOF
+}
+
 cmd_create() {
   local name="" from=""
   while [ $# -gt 0 ]; do
@@ -124,7 +146,10 @@ cmd_create() {
       ;;
   esac
 
+  write_starter_description "$name"
+
   echo "Created profile '$name' at $dir"
+  echo "Describe it: $dir/DESCRIPTION.md (shown by: pi-profile list)"
   echo "Customize: $dir/settings.json, $dir/skills/, $dir/extensions/"
 }
 
@@ -172,7 +197,28 @@ nothing here is vendored.
 EOF
 
   echo "Packed '$name' → $out"
+  [ -f "$out/DESCRIPTION.md" ] || echo "Note: no DESCRIPTION.md in $name, so installers see no summary."
   echo "Publish: cd $out && git init -b main && git add -A && git commit -m 'pack: $name' && git push"
+}
+
+cmd_list() {
+  local name width=0
+  for name in $(list_profiles); do [ ${#name} -gt $width ] && width=${#name}; done
+  for name in $(list_profiles); do
+    printf '%-*s  %s\n' "$width" "$name" "$(profile_summary "$name")"
+  done
+}
+
+cmd_show() {
+  local name="${1:-}"
+  [ -n "$name" ] || die "usage: pi-profile show <name>"
+  [ -d "$PROFILES_ROOT/$name" ] || die "no such profile: $name"
+  if [ -f "$PROFILES_ROOT/$name/DESCRIPTION.md" ]; then
+    cat "$PROFILES_ROOT/$name/DESCRIPTION.md"
+  else
+    echo "$name: $(profile_summary "$name")"
+    echo "(add $PROFILES_ROOT/$name/DESCRIPTION.md to describe it)"
+  fi
 }
 
 cmd_install() {
@@ -204,6 +250,7 @@ cmd_install() {
   local dir="$PROFILES_ROOT/$name"
   copy_portable "$src" "$dir"
   [ -f "$dir/settings.json" ] || printf '{}\n' > "$dir/settings.json"
+  write_starter_description "$name"
   [ -n "$tmp" ] && rm -rf "$tmp"
 
   echo "Installed as profile '$name' at $dir"
@@ -211,15 +258,21 @@ cmd_install() {
 }
 
 cmd_pick_and_run() {
-  local profiles
-  profiles="$(list_profiles)"
-  [ -n "$profiles" ] || die "no profiles yet — create one: pi-profile create <name>"
+  local names name rows choice
+  names="$(list_profiles)"
+  [ -n "$names" ] || die "no profiles yet — create one: pi-profile create <name>"
 
-  local choice
   if command -v fzf >/dev/null 2>&1; then
-    choice="$(echo "$profiles" | fzf --prompt='pi profile: ')" || exit 0
+    # Tab-separated so the summary is visible but only the name is returned.
+    rows=""
+    while IFS= read -r name; do
+      rows+="$(printf '%s\t%s\n' "$name" "$(profile_summary "$name")")"$'\n'
+    done <<< "$names"
+    choice="$(printf '%s' "$rows" | fzf --delimiter='\t' --with-nth=1,2 --prompt='pi profile: ')" || exit 0
+    choice="${choice%%$'\t'*}"
   else
-    select choice in $profiles; do [ -n "$choice" ] && break; done
+    echo "(pi-profile list shows each profile's description)" >&2
+    select choice in $names; do [ -n "$choice" ] && break; done
     [ -n "${choice:-}" ] || exit 0
   fi
   exec_profile "$choice"
@@ -238,9 +291,10 @@ exec_profile() {
 case "${1:-}" in
   help|-h|--help|"")
     if [ -z "${1:-}" ] && [ -t 0 ]; then cmd_pick_and_run; exit 0; fi
-    sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
     ;;
-  list) list_profiles ;;
+  list) cmd_list ;;
+  show) shift; cmd_show "$@" ;;
   create) shift; cmd_create "$@" ;;
   pack) shift; cmd_pack "$@" ;;
   install) shift; cmd_install "$@" ;;

@@ -168,7 +168,8 @@ profile_inventory() { # name
   local dir="$PROFILES_ROOT/$1" pkgs skills cfg f
   pkgs="$(profile_packages "$1")"
   field packages "${pkgs:-none}"
-  skills="$(ls -1 "$dir/skills" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')"
+  # find, not ls: skill directories can contain spaces or odd characters.
+  skills="$(find "$dir/skills" -mindepth 1 -maxdepth 1 -exec basename {} \; 2>/dev/null | sort | paste -sd ',' - | sed 's/,/, /g')"
   [ -n "$skills" ] && field skills "$skills"
   cfg=""
   for f in APPEND_SYSTEM.md sol-pi.json nolo.json; do
@@ -279,7 +280,7 @@ EOF
 cmd_list() {
   local name width=0
   if [ "${1:-}" = "-1" ] || [ "${1:-}" = "--short" ]; then
-    for name in $(list_profiles); do [ ${#name} -gt $width ] && width=${#name}; done
+    for name in $(list_profiles); do [ ${#name} -gt "$width" ] && width=${#name}; done
     for name in $(list_profiles); do
       printf '%-*s  %s\n' "$width" "$name" "$(profile_summary "$name")"
     done

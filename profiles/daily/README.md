@@ -18,5 +18,8 @@ nothing here is vendored.
   they are symlinked from your global config at install time.
 - Extension entries in settings.json pointing at absolute local paths won't
   resolve on other machines. Publish those extensions as npm/git packages.
+- `pi-transcribe.json` carries the dictation shortcut and model choice. Its
+  model path is machine-specific: on a new machine pi-transcribe reports the
+  model missing and asks you to choose one again.
 - Trust model: installing a profile runs its declared packages, same as any
   npm install. Read settings.json before installing someone else's profile.

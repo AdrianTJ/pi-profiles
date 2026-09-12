@@ -59,11 +59,27 @@ interventions, zero scope violations.
 
 ## sol-trial — SoL-Pi efficiency evaluation (standalone)
 
-Same stack as marathon plus NVIDIA's
-[SoL-Pi](https://github.com/NVlabs/SoL-Pi) (`0.1.0`), with conservative
-`sol-pi.json`: Action Fusion + ObservationPack on, reducer + context compact
-off. Use it for long **single sessions** (no loops needed) — that is what
-SoL-Pi is built for.
+NVIDIA's [SoL-Pi](https://github.com/NVlabs/SoL-Pi) (`0.1.0`) and nothing else,
+with conservative `sol-pi.json`: Action Fusion + ObservationPack on, reducer +
+context compact off. Use it for long **single sessions** (no loops needed) — that
+is what SoL-Pi is built for.
+
+This profile used to be the marathon stack plus SoL-Pi. That was a mistake, and
+it invalidated the first trial: the extra packages changed what was being
+measured. `pi-nolo` re-registers the builtin `edit` tool, holds the `edit` slot
+ahead of SoL-Pi, and drops Action Fusion's `then_run` parameter, so fusion never
+fired on `edit` calls for the entire trial. That profile is deleted, and this one
+declares only SoL-Pi.
+
+Never load `pi-nolo` next to SoL-Pi: both register `edit` and the first one loaded
+keeps the slot, on 0.84.2 and 0.85.1 alike. The same goes for any extension that
+re-registers `edit`, `write` or `bash` from Pi's builtin definitions.
+
+Re-measured 2026-09-12 against stock Pi 0.85.1: with a natural prompt the model
+never opts into `then_run` (0 of 6 runs), so the profile is ObservationPack plus
+about 14% extra prompt overhead on small tasks. When the prompt asks for the
+fusion it fires every time and saves a turn (4 to 3 turns, -21.6% and -12.7%
+tokens). Large-context results were too noisy at 3 pairs to call.
 
 `sol-pi.json` is inside `pi-profile pack`'s whitelist, so installing the profile
 ships it automatically — no manual copy step.
@@ -71,11 +87,3 @@ ships it automatically — no manual copy step.
 Config resolution is profile-scoped (verified in SoL-Pi source: it resolves
 via `getAgentDir()`), so nothing leaks into base. Provenance and trial notes
 live in `harness-configs` `SOURCES.md` under "sol-pi".
-
-Known issue (diagnosed 2026-09-11, Pi 0.84.4): Action Fusion's `then_run`
-follow-up does not execute — the model passes it, the edit applies, but the
-fused command never runs and no `[then_run:*]` marker appears; the agent
-re-runs the check itself. Pi's registry code shows extension tools overwrite
-builtins by name, so registration is not the cause; the `then_run` argument
-appears to be dropped between the model call and execution. Re-test after
-upstream clarifies 0.84.2-vs-0.84.4 behavior before relying on Fusion.

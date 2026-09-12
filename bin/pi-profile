@@ -14,8 +14,11 @@
 #   pi-profile help
 #
 # Shared into every profile at create time (symlinks, never copies):
-#   auth.json models-store.json AGENTS.md trust.json
-# Everything else (settings.json, skills/, extensions/, APPEND_SYSTEM.md) is
+#   auth.json models-store.json AGENTS.md trust.json extensions/
+# extensions/ is shared because tools install their own files into the base agent
+# dir (Orca's managed status extension, for example) and Pi only discovers
+# extensions under the active agent dir, so a profile loads none of them.
+# Everything else (settings.json, skills/, APPEND_SYSTEM.md) is
 # per-profile. Add more sharing manually: ln -s ~/.pi/agent/<item> ~/.pi/profiles/<name>/
 
 set -euo pipefail
@@ -34,7 +37,7 @@ PROFILES_ROOT="${PI_PROFILES_ROOT:-$HOME/.pi/profiles}"
 BASE_DIR="${PI_PROFILE_BASE_DIR:-$HOME/.pi/agent}"
 SHARED_SESSIONS="${PI_PROFILE_SESSIONS:-$BASE_DIR/sessions}"
 # ponytail: fixed share list; promote to a config file if it keeps growing
-SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json)
+SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json extensions)
 # What pack/install copy. Credentials and state are shared by symlink instead —
 # this whitelist is the whole secret-safety story: real files only, never links.
 # New root-level configs (e.g. sol-pi.json) get an explicit entry here, never a
@@ -63,13 +66,21 @@ copy_portable() {
     [ -f "$src/$item" ] && [ ! -L "$src/$item" ] && cp "$src/$item" "$dst/"
   done
   for item in "${PORTABLE_DIRS[@]}"; do
-    [ -d "$src/$item" ] && portable_cp "$src/$item" "$dst/$item"
+    [ -d "$src/$item" ] || continue
+    # Never write through a shared symlink: a profile's extensions/ points at the
+    # base agent dir, so copying bundle files there would drop them into base.
+    if [ -L "$dst/$item" ]; then
+      [ -n "$(find "$src/$item" -type f -print -quit 2>/dev/null)" ] &&
+        echo "pi-profile: bundle has $item/ files but $dst/$item is a shared symlink, not copied" >&2
+      continue
+    fi
+    portable_cp "$src/$item" "$dst/$item"
   done
 }
 
 init_profile_dir() {
   local name="$1"
-  mkdir -p "$PROFILES_ROOT/$name/skills" "$PROFILES_ROOT/$name/extensions"
+  mkdir -p "$PROFILES_ROOT/$name/skills"
 
   # Share credentials and global instructions by symlink — never copy secrets.
   local item

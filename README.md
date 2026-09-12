@@ -30,8 +30,9 @@ alias piwork='pi-profile work'  # optional per-profile aliases
 ## Sharing profiles
 
 A profile's portable content is small — settings.json (which declares its
-packages), skills, prompts, APPEND_SYSTEM.md. `pack` copies exactly that
-whitelist into a folder you push to GitHub; `install` clones any such repo into
+packages), APPEND_SYSTEM.md, sol-pi.json, and the skills/, prompts/, and
+extensions/ directories. `pack` copies exactly that whitelist into a folder you
+push to GitHub; `install` clones any such repo into
 a new local profile and re-symlinks your credentials. Packages re-fetch from
 npm/git on first launch, so nothing is vendored.
 

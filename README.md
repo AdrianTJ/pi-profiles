@@ -120,3 +120,13 @@ it stays silent when pi runs without the wrapper.
   moving `~/.pi/profiles/*` contents accordingly.
 
 Environment overrides: `PI_PROFILES_ROOT`, `PI_PROFILE_BASE_DIR`, `PI_PROFILE_SESSIONS`.
+
+## Checks
+
+`./check.sh` runs everything CI runs: shellcheck on `bin/pi-profile` and the
+pack/install smoke test. Point the hook at it once per clone and a broken check
+never reaches CI:
+
+```sh
+git config core.hooksPath .githooks
+```

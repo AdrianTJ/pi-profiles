@@ -6,7 +6,7 @@
 #
 # Usage:
 #   pi-profile                 interactive profile picker
-#   pi-profile list            what each profile is for and what it installs
+#   pi-profile list (-l)       what each profile is for and what it installs
 #   pi-profile list -1         the same list, one line per profile
 #   pi-profile show <name>     print a profile's full description
 #   pi-profile create <name> [--from <name>|--from base]
@@ -46,6 +46,14 @@ SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json extensions)
 # wildcard, so a future credential file can never match by accident.
 PORTABLE_FILES=(settings.json APPEND_SYSTEM.md sol-pi.json DESCRIPTION.md)
 PORTABLE_DIRS=(skills prompts extensions)
+
+# Colour only on a terminal: piped output stays plain so it can be grepped.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+  C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'; C_OFF=$'\033[0m'
+else
+  C_BOLD=''; C_DIM=''; C_OFF=''
+fi
+LABEL_W=8
 
 # Copy a file/dir tree skipping symlinks entirely (never copy or follow them).
 portable_cp() {
@@ -126,19 +134,61 @@ json_array() { # file key
     tr ',' '\n' | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//' | grep . || true
 }
 
+# Cap the wrap so lines do not run the full width of a wide terminal.
+term_width() {
+  local w="${COLUMNS:-}"
+  [ -n "$w" ] || w="$(tput cols 2>/dev/null || true)"
+  case "$w" in ''|*[!0-9]*) w=100 ;; esac
+  [ "$w" -gt 100 ] && w=100
+  [ "$w" -lt 40 ] && w=40
+  printf '%s' "$w"
+}
+
+# "  label  value", value wrapped with continuation lines indented under it, so
+# a long package list reads as a column instead of a paragraph of text.
+field() { # label value
+  local label="$1" value="$2" width pad body
+  width="$(term_width)"; pad=$((2 + LABEL_W + 2))
+  # Build first: an empty value must still end its line, or the next profile's
+  # rule lands on the same row. Command substitution keeps the inner newlines.
+  body="$(printf '%s' "$value" | sed 's/`//g' |
+    fold -s -w $((width - pad)) |
+    awk -v pad="$pad" 'NR == 1 { print; next } { printf "%*s%s\n", pad, "", $0 }')"
+  printf '  %s%-*s%s  %s\n' "$C_DIM" "$LABEL_W" "$label" "$C_OFF" "$body"
+}
+
+profile_packages() { # name
+  json_array "$PROFILES_ROOT/$1/settings.json" packages | sed 's/^npm://' | paste -sd ',' - | sed 's/,/, /g'
+}
+
+# The named fields, in a fixed order, so every profile reads the same way.
+# Inventory (packages, skills, config) is read from the profile itself, so it
+# cannot drift from what is actually installed.
 profile_inventory() { # name
   local dir="$PROFILES_ROOT/$1" pkgs skills cfg f
-  # paste -d takes one char per column, so join on a comma and space it afterwards.
-  pkgs="$(json_array "$dir/settings.json" packages | sed 's/^npm://' | paste -sd ',' - | sed 's/,/, /g')"
-  printf '  packages: %s\n' "${pkgs:-none}"
+  pkgs="$(profile_packages "$1")"
+  field packages "${pkgs:-none}"
   skills="$(ls -1 "$dir/skills" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')"
-  [ -n "$skills" ] && printf '  skills:   %s\n' "$skills"
+  [ -n "$skills" ] && field skills "$skills"
   cfg=""
   for f in APPEND_SYSTEM.md sol-pi.json nolo.json; do
     [ -f "$dir/$f" ] && cfg="${cfg:+$cfg, }$f"
   done
-  [ -n "$cfg" ] && printf '  config:   %s\n' "$cfg"
+  [ -n "$cfg" ] && field config "$cfg"
   return 0
+}
+
+profile_fields() { # name
+  local file="$PROFILES_ROOT/$1/DESCRIPTION.md" when note
+  if [ -f "$file" ]; then
+    when="$(awk 'sub(/^Use it when: */, "") { print; exit }' "$file")"
+    [ -n "$when" ] && field when "$when"
+    # Leftover prose becomes a note: the headline is already shown, and an
+    # Installed: line is dropped because the inventory below is live.
+    awk 'NF && $0 !~ /^#/ && $0 !~ /^Use it when: / && $0 !~ /^Installed:/ { n++; if (n > 1) print }' "$file" |
+      while IFS= read -r note; do field note "$note"; done
+  fi
+  profile_inventory "$1"
 }
 
 cmd_create() {
@@ -235,17 +285,13 @@ cmd_list() {
     done
     return 0
   fi
-  local first=1
+  local first=1 w rule
+  w="$(term_width)"; [ "$w" -gt 72 ] && w=72
+  rule="$(printf '%*s' "$w" '' | tr ' ' '-')"
   for name in $(list_profiles); do
-    [ $first -eq 1 ] || echo
-    first=0
-    printf '%s — %s\n' "$name" "$(profile_summary "$name")"
-    # Remaining prose: the headline is already printed, and inventory comes live
-    # from the profile, so an "Installed:" line in the file would be duplicated.
-    [ -f "$PROFILES_ROOT/$name/DESCRIPTION.md" ] &&
-      awk 'NF && $0 !~ /^#/ { n++; if (n == 1 || $0 ~ /^Installed:/) next; print "  " $0 }' \
-        "$PROFILES_ROOT/$name/DESCRIPTION.md"
-    profile_inventory "$name"
+    if [ $first -eq 1 ]; then first=0; else printf '\n%s%s%s\n' "$C_DIM" "$rule" "$C_OFF"; fi
+    printf '%s%s%s  %s\n' "$C_BOLD" "$name" "$C_OFF" "$(profile_summary "$name")"
+    profile_fields "$name"
   done
 }
 
@@ -336,10 +382,11 @@ case "${1:-}" in
     if [ -z "${1:-}" ] && [ -t 0 ]; then cmd_pick_and_run; exit 0; fi
     sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
     ;;
-  list) shift; cmd_list "$@" ;;
+  list|-l|--list) shift; cmd_list "$@" ;;
   show) shift; cmd_show "$@" ;;
   create) shift; cmd_create "$@" ;;
   pack) shift; cmd_pack "$@" ;;
   install) shift; cmd_install "$@" ;;
+  -*) die "unknown option: $1 (try: pi-profile help)" ;;
   *) exec_profile "$@" ;;  # anything else: first arg must be a profile name
 esac

@@ -13,7 +13,7 @@ and every action stays visible.
 - Speak instead of typing with `Hyperkey + Space` (Handy): works in any app,
   including pi. Fully local — audio never leaves the machine. Handy's config is
   tracked in the dotfiles repo (`handy/`).
-- Delegate recon and parallel work via subagents (`/agents`); track task lists
+- Delegate recon and parallel work via subagents (`/subagents`); track task lists
   visibly with `/todos` (rpiv-todo overlay) so multi-step work survives reloads.
 - Risky or exploratory work goes in a git worktree.
 - Long campaigns (coverage, migrations, multi-hour backlogs) don't belong

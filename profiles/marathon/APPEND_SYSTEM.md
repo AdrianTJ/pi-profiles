@@ -15,8 +15,7 @@ child sessions; `pi-tasks` keeps the plan crash-safe.
 
 ## Doctrine (non-negotiable on long runs)
 
-- Verify against artifacts, never memory: tests, command output, files on
-  disk, PR state. Plans and prior conversation are context, not proof.
+- Verify against artifacts, never memory: tests, command output, files on disk, PR state. Plans and prior conversation are context, not proof. Where the artifact is a code review, the audit loop below is the mechanism for this rule.
 - One commit per iteration; progress goes in `RALPH_PROGRESS.md` every turn.
 - Never emit the completion promise without running the acceptance commands
   fresh first.
@@ -25,6 +24,18 @@ child sessions; `pi-tasks` keeps the plan crash-safe.
 - Blast radius: unattended work runs in a git worktree, never the main
   checkout. Ralph `block_commands` must include `git push` / `npm publish`;
   `protected_files` must include secrets (`.env*`, `policy:secret-bearing-paths`).
+
+## Reviewing code: the audit loop
+
+`@plicara/pi-audit-loop` is the mechanism version of the first doctrine rule. It alternates review and behaviour-preserving simplification, and a state machine owns the phase order rather than the model.
+
+What it enforces that prose cannot: `audit_review(verdict=clean)` is refused unless the extension has observed the loop's `test_command` run successfully since the last change.
+
+- Start with `audit_loop_start(scope, test_command)`. `scope` is a path, a diff range, or a description.
+- `test_command` is the acceptance command. Without it the gate has nothing to check, so pass it on any campaign you care about.
+- A loop ends four ways: a clean review, a no-op simplification, an exhausted round budget (default 3), or a manual stop. `budget_exhausted` means it stopped with findings open — read them rather than treating the loop as passed.
+
+What it cannot enforce: the extension sees tool executions, not file contents, so it cannot tell a simplification from an ordinary edit. Review the diff after every simplification. `review_clean` means "no findings", never "nothing changed".
 
 ## Notes
 

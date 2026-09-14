@@ -26,7 +26,8 @@ trivial headless run before trusting a campaign to it.
 ## marathon — unattended campaigns
 
 Stack: `/goal` (intent) + Ralph loop (execution) + `pi-tasks` (durable plans)
-+ `pi-nolo` (approvals). Doctrine in `APPEND_SYSTEM.md`.
++ `pi-nolo` (approvals) + `@plicara/pi-audit-loop` (review gate). Doctrine in
+`APPEND_SYSTEM.md`.
 
 Interactive run (use tmux if you want to detach):
 

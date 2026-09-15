@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.84.4",
   "theme": "light/dark",
   "defaultProvider": "opencode-go",
-  "defaultModel": "deepseek-v4.1-flash",
+  "defaultModel": "glm-5.3-flash",
   "defaultThinkingLevel": "medium",
   "packages": [
     "npm:@bacnh85/pi-fff",

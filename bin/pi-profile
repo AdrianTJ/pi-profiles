@@ -10,6 +10,7 @@
 #   pi-profile list -1         the same list, one line per profile
 #   pi-profile show <name>     print a profile's full description
 #   pi-profile create <name> [--from <name>|--from base]
+#   pi-profile migrate-packages       share one npm/git tree across all profiles
 #   pi-profile pack <name> [outdir]                  export a shareable profile
 #   pi-profile install <owner>/<repo>|<dir> [name]   install a shared profile
 #   pi-profile <name> [pi args...]
@@ -38,6 +39,10 @@ BADGE_TS="$REPO_DIR/extensions/profile-badge.ts"
 PROFILES_ROOT="${PI_PROFILES_ROOT:-$HOME/.pi/profiles}"
 BASE_DIR="${PI_PROFILE_BASE_DIR:-$HOME/.pi/agent}"
 SHARED_SESSIONS="${PI_PROFILE_SESSIONS:-$BASE_DIR/sessions}"
+# One package pool for every profile and the base agent dir: pi installs into
+# <agentDir>/npm and <agentDir>/git, so those two entries are symlinked into
+# $SHARED_PACKAGES. One `pi update --extensions` then updates all of them.
+SHARED_PACKAGES="${PI_PROFILE_PACKAGES_DIR:-$PROFILES_ROOT/.shared}"
 # ponytail: fixed share list; promote to a config file if it keeps growing
 SHARED_ITEMS=(auth.json models-store.json AGENTS.md trust.json extensions)
 # What pack/install copy. Credentials and state are shared by symlink instead —
@@ -98,6 +103,31 @@ init_profile_dir() {
     if [ -e "$BASE_DIR/$item" ]; then
       ln -s "$BASE_DIR/$item" "$PROFILES_ROOT/$name/$item"
     fi
+  done
+
+  # Point this profile's package dirs at the shared pool so its installs and
+  # updates land in the one tree every profile reads from.
+  link_packages_dir "$PROFILES_ROOT/$name"
+}
+
+# Replace an agent dir's real npm/git trees with symlinks into the shared pool.
+# The first real tree encountered is adopted as the pool's seed content; later
+# duplicates are dropped — pi re-fetches anything missing from settings.json
+# on the agent dir's next launch.
+link_packages_dir() { # agent_dir
+  local dir="$1" pkg
+  for pkg in npm git; do
+    if [ -L "$dir/$pkg" ]; then continue; fi
+    if [ -d "$dir/$pkg" ]; then
+      mkdir -p "$SHARED_PACKAGES"
+      if [ -d "$SHARED_PACKAGES/$pkg" ] && [ -n "$(ls -A "$SHARED_PACKAGES/$pkg" 2>/dev/null)" ]; then
+        rm -rf "${dir:?}/$pkg"
+      else
+        mv "$dir/$pkg" "$SHARED_PACKAGES/$pkg"
+      fi
+    fi
+    mkdir -p "$SHARED_PACKAGES/$pkg"
+    ln -s "$SHARED_PACKAGES/$pkg" "$dir/$pkg"
   done
 }
 
@@ -227,6 +257,16 @@ cmd_create() {
   echo "Created profile '$name' at $dir"
   echo "Describe it: $dir/DESCRIPTION.md (shown by: pi-profile list)"
   echo "Customize: $dir/settings.json, $dir/skills/, $dir/extensions/"
+}
+
+cmd_migrate_packages() {
+  link_packages_dir "$BASE_DIR"
+  local name
+  for name in $(list_profiles); do
+    link_packages_dir "$PROFILES_ROOT/$name"
+  done
+  echo "Shared package pool: $SHARED_PACKAGES"
+  echo "One 'pi update --extensions' now updates every profile (and plain pi)."
 }
 
 cmd_pack() {
@@ -386,6 +426,7 @@ case "${1:-}" in
   list|-l|--list) shift; cmd_list "$@" ;;
   show) shift; cmd_show "$@" ;;
   create) shift; cmd_create "$@" ;;
+  migrate-packages) shift; cmd_migrate_packages ;;
   pack) shift; cmd_pack "$@" ;;
   install) shift; cmd_install "$@" ;;
   -*) die "unknown option: $1 (try: pi-profile help)" ;;

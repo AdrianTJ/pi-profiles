@@ -1,6 +1,6 @@
 # pi-profile
 
-Per-profile config directories for the [pi coding agent](https://github.com/earendil-works/pi), with shared session history.
+Per-profile config directories for the [pi coding agent](https://github.com/earendil-works/pi), with shared session history and a shared package pool.
 
 A profile is a complete pi config dir (`~/.pi/profiles/<name>`) activated with
 `PI_CODING_AGENT_DIR`. Packages, `skills/`, `settings.json` and
@@ -83,6 +83,17 @@ model as `npm install`.
 
 Shared at creation (symlinked, never copied — secrets stay in one place):
 `auth.json`, `models-store.json`, `AGENTS.md`, `trust.json`, `extensions/`.
+
+Packages are shared too: every profile's `npm/` and `git/` entries are symlinks
+into one pool at `~/.pi/profiles/.shared/` (override with
+`PI_PROFILE_PACKAGES_DIR`), and the base agent dir links to the same pool. So
+all profiles and plain `pi` run the same package versions, and a single
+`pi update --extensions` updates every profile at once. Existing installs are
+migrated with:
+
+```sh
+pi-profile migrate-packages
+```
 
 `extensions/` is shared because tools install their own files into the base agent
 dir (Orca's managed status extension, for example) and Pi only discovers

@@ -1,6 +1,6 @@
 {
   "extensions": [
-    "/Users/ryo/Documents/Projects/pi-profiles/extensions/profile-badge.ts"
+    "~/.pi/agent/extensions/profile-badge.ts"
   ],
   "packages": [
     "git:github.com/NVlabs/SoL-Pi"

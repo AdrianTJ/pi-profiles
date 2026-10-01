@@ -19,7 +19,7 @@
 # Shared into every profile at create time (symlinks, never copies):
 #   auth.json models-store.json AGENTS.md trust.json extensions/
 # extensions/ is shared because tools install their own files into the base agent
-# dir (Orca's managed status extension, for example) and Pi only discovers
+# dir (a status-reporting extension, for example) and Pi only discovers
 # extensions under the active agent dir, so a profile loads none of them.
 # Everything else (settings.json, skills/, APPEND_SYSTEM.md) is
 # per-profile. Add more sharing manually: ln -s ~/.pi/agent/<item> ~/.pi/profiles/<name>/

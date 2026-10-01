@@ -96,7 +96,7 @@ pi-profile migrate-packages
 ```
 
 `extensions/` is shared because tools install their own files into the base agent
-dir (Orca's managed status extension, for example) and Pi only discovers
+dir (a status-reporting extension, for example) and Pi only discovers
 extensions under the active agent dir. A private `extensions/` directory means a
 profile silently loads none of them, which is how profile sessions end up missing
 status reporting.

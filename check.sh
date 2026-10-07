@@ -7,6 +7,10 @@ cd "$(dirname "$0")"
 command -v shellcheck >/dev/null 2>&1 || { echo "shellcheck is required: brew install shellcheck" >&2; exit 1; }
 
 shellcheck bin/pi-profile
+# npm update through the pool's symlinked npm/ leaves ../-prefixed ghost keys
+# in the lockfile (npm audit counts them as phantom vulnerabilities). Fail
+# loudly rather than let them accumulate: run 'pi-profile clean-lock' to clear.
+./bin/pi-profile clean-lock --check
 ./test.sh
 
 echo "pi-profiles: all checks passed"

@@ -95,6 +95,8 @@ migrated with:
 pi-profile migrate-packages
 ```
 
+One caveat: pi passes the pool's symlinked `npm/` to npm as `--prefix` without resolving it, so each `pi update --extensions` rewrites the pool lockfile with `../`-relative ghost keys and a relative root version field, which `npm audit` counts as phantom vulnerabilities. `check.sh` fails on them (and on a lockfile gutted by that rewrite); `pi-profile clean-lock` repairs the lockfile from the on-disk tree.
+
 `extensions/` is shared because tools install their own files into the base agent
 dir (Orca's managed status extension, for example) and Pi only discovers
 extensions under the active agent dir. A private `extensions/` directory means a

@@ -11,6 +11,7 @@
 #   pi-profile show <name>     print a profile's full description
 #   pi-profile create <name> [--from <name>|--from base]
 #   pi-profile migrate-packages       share one npm/git tree across all profiles
+#   pi-profile clean-lock [--check]   strip npm --prefix ghost keys from the pool lockfile
 #   pi-profile pack <name> [outdir]                  export a shareable profile
 #   pi-profile install <owner>/<repo>|<dir> [name]   install a shared profile
 #   pi-profile <name> [pi args...]
@@ -269,6 +270,110 @@ cmd_migrate_packages() {
   echo "One 'pi update --extensions' now updates every profile (and plain pi)."
 }
 
+# npm rewrites the pool's lockfile against whatever symlinked npm/ dir pi hands
+# it as --prefix: every real key is converted to a ../-relative ghost anchored
+# at the logical prefix, and the root version becomes a file:../ escape too.
+# npm audit then counts the ghosts (and their stale strata) as installed
+# packages — phantom vulnerabilities. Recover ghosts whose canonical path still
+# exists on disk (the conversion), drop stale ones, strip the root version
+# artifact. --check only reports (for check.sh).
+cmd_clean_lock() {
+  local check=0 lock
+  if [ "${1:-}" = "--check" ]; then check=1; shift; fi
+  [ $# -eq 0 ] || die "usage: pi-profile clean-lock [--check]"
+  lock="$SHARED_PACKAGES/npm/package-lock.json"
+  if [ ! -f "$lock" ]; then
+    if [ "$check" -eq 1 ]; then return 0; fi
+    echo "no pool lockfile at $lock"
+    return 0
+  fi
+  command -v node >/dev/null 2>&1 || die "node is required to clean the pool lockfile"
+  CLEAN_LOCK_FILE="$lock" CLEAN_LOCK_CHECK="$check" node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const file = process.env.CLEAN_LOCK_FILE;
+    const check = process.env.CLEAN_LOCK_CHECK === "1";
+    let lock;
+    try {
+      lock = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch (e) {
+      console.error("pi-profile: cannot parse " + file + ": " + e.message);
+      process.exit(2);
+    }
+    const root = path.dirname(file);
+    const packages = lock.packages || {};
+    const ghosts = Object.keys(packages).filter((key) => key.startsWith("../"));
+    const gutted =
+      Object.keys(packages).every((key) => !key.startsWith("node_modules/")) &&
+      fs.existsSync(path.join(root, "node_modules"));
+    if (check) {
+      if (ghosts.length === 0 && !gutted) {
+        console.log("pool lockfile clean: " + file);
+        process.exit(0);
+      }
+      const why = ghosts.length > 0
+        ? ghosts.length + " ghost entries"
+        : "no package entries though node_modules/ exists";
+      console.error("pi-profile: " + why + " in " + file + " (run: pi-profile clean-lock)");
+      process.exit(1);
+    }
+    // A ghost key is relative(logicalPrefix, physicalPath); the tail from the
+    // first node_modules/ is the canonical key — iff that package is installed.
+    const next = {};
+    let recovered = 0;
+    let dropped = 0;
+    for (const [key, value] of Object.entries(packages)) {
+      if (!key.startsWith("../")) {
+        if (!(key in next)) next[key] = value;
+        continue;
+      }
+      const i = key.indexOf("node_modules/");
+      const canonical = i === -1 ? "" : key.slice(i);
+      // On disk, or an optional platform entry npm records but never installs
+      // for this cpu/os — anything else is a stale stratum from an old tree.
+      const present = value && value.optional === true ||
+        fs.existsSync(path.join(root, canonical));
+      if (canonical && !(canonical in next) && !(canonical in packages) && present) {
+        next[canonical] = value;
+        recovered++;
+      } else {
+        dropped++;
+      }
+    }
+    lock.packages = next;
+    let versionStripped = false;
+    if (
+      typeof lock.version === "string" &&
+      lock.version.startsWith("file:") &&
+      lock.version.includes("../")
+    ) {
+      delete lock.version;
+      versionStripped = true;
+    }
+    const guttedAfter =
+      Object.keys(next).every((key) => !key.startsWith("node_modules/")) &&
+      fs.existsSync(path.join(root, "node_modules"));
+    if (guttedAfter) {
+      console.error("pi-profile: no recoverable package entries in " + file + "; regenerate with:");
+      console.error("  (cd " + root + " && npm install --package-lock-only)");
+      process.exit(1);
+    }
+    if (ghosts.length === 0 && !versionStripped) {
+      console.log("pool lockfile clean: " + file);
+      process.exit(0);
+    }
+    const tmp = file + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(lock, null, 2) + "\n");
+    fs.renameSync(tmp, file);
+    if (ghosts.length > 0) {
+      console.log("recovered " + recovered + ", dropped " + dropped + " ghost entries in " + file);
+    }
+    if (versionStripped) {
+      console.log("stripped relative root version field in " + file);
+    }
+  '
+}
+
 cmd_pack() {
   local name="${1:-}" out="${2:-}"
   if [ -z "$name" ] || [ -n "${3:-}" ]; then die "usage: pi-profile pack <name> [outdir]"; fi
@@ -427,6 +532,7 @@ case "${1:-}" in
   show) shift; cmd_show "$@" ;;
   create) shift; cmd_create "$@" ;;
   migrate-packages) shift; cmd_migrate_packages ;;
+  clean-lock) shift; cmd_clean_lock "$@" ;;
   pack) shift; cmd_pack "$@" ;;
   install) shift; cmd_install "$@" ;;
   -*) die "unknown option: $1 (try: pi-profile help)" ;;

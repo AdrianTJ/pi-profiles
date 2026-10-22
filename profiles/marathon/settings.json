@@ -4,14 +4,11 @@
   "defaultProvider": "opencode-go",
   "defaultModel": "glm-5.3-flash",
   "defaultThinkingLevel": "medium",
+  "skills": [
+    "!/Users/adriantj/.agents/skills/**"
+  ],
   "packages": [
-    "npm:@bacnh85/pi-fff",
-    "npm:@jqwn/pi-ask-user-question",
-    "npm:@narumitw/pi-btw",
-    "npm:@dietrichgebert/ponytail",
-    "npm:pi-subagents",
     "npm:pi-tasks",
-    "npm:pi-web-access",
     "npm:@lnilluv/pi-ralph-loop",
     "npm:@xbear/pi-goal",
     "npm:pi-nolo",

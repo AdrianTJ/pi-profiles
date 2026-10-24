@@ -1,0 +1,7 @@
+{
+  "packages": [
+    "${ALTERWIKI_DIR}"
+  ],
+  "lastChangelogVersion": "1.0.0",
+  "theme": "light"
+}

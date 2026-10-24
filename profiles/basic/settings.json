@@ -1,0 +1,11 @@
+{
+  "lastChangelogVersion": "0.87.1",
+  "theme": "light/dark",
+  "defaultProvider": "opencode-go",
+  "defaultModel": "glm-5.3-flash",
+  "defaultThinkingLevel": "high",
+  "packages": [
+    "npm:pi-web-access",
+    "npm:pi-subagents"
+  ]
+}

@@ -74,10 +74,23 @@ pi-profile install ./pi-web mine    # local dirs work too — test before pushin
 ```
 
 Secrets can't leak into a bundle: profiles hold credentials as symlinks and
-pack copies real files only. Extension entries pointing at absolute local
-paths (e.g. profile-badge) won't resolve on other machines — publish those as
-packages instead. Installing a profile runs its declared packages, same trust
+pack copies real files only. Extension entries that point at a local checkout use
+`${PLACEHOLDER}` names instead of a real path (see `profiles/README.md` and
+`.env.example`), so nothing personal is committed and each machine fills in its
+own path. Installing a profile runs its declared packages, same trust
 model as `npm install`.
+
+## What this repo carries
+
+- `bin/pi-profile` — the launcher.
+- `profiles/<name>/` — every profile definition (settings, description,
+  `APPEND_SYSTEM.md`, `sol-pi.json`, and any owned skills). Nine profiles live
+  here; see `profiles/README.md` for what each one is for and how to rebuild a
+  machine from scratch.
+- `pool/package.json`, `pool/package-lock.json` — the package versions and
+  overrides the profiles were last run against, so a fresh pool reproduces them.
+- `extensions/profile-badge.ts` — the footer badge, loaded by profiles that
+  reference it.
 
 ## What's in a profile
 

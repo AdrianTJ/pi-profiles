@@ -1,10 +1,13 @@
 {
   "extensions": [
-    "~/.pi/agent/extensions/profile-badge.ts"
+    "${PI_PROFILES_DIR}/extensions/profile-badge.ts"
   ],
   "packages": [
-    "git:github.com/NVlabs/SoL-Pi"
+    "git:github.com/NVlabs/SoL-Pi",
+    "npm:pi-web-access"
   ],
   "defaultProvider": "opencode-go",
-  "defaultModel": "glm-5.3-flash"
+  "defaultModel": "glm-5.3-flash",
+  "lastChangelogVersion": "1.0.4",
+  "theme": "light"
 }

@@ -1,12 +1,40 @@
-# Profile run guide
+# Profiles
 
-Two long-run profiles live here. Install one from a local checkout by pointing at
-its directory, since a bundle in this repo is not a repo of its own:
+Every profile definition lives here, so a machine can be rebuilt from this repo
+plus credentials. `pi-profile list` shows what is installed locally and what each
+one installs, read from the profile itself.
+
+| Profile | What it is for | Packages |
+| --- | --- | --- |
+| `daily` | Lean interactive daily driver: search, ask, delegate, plan, dictate. | 7 |
+| `basic` | Plain pi plus two extensions: web search and subagents. | 2 |
+| `marathon` | Unattended campaigns: goal, Ralph loop, durable plans, approval gating, review gate. | 5 |
+| `SoL-Pi` | SoL-Pi trial: Action Fusion and ObservationPack, nothing else. | 2 |
+| `pi-starter` | Baseline starter set for a fresh machine. | 7 |
+| `alterwiki` | AlterWiki extension development against a local checkout. | 1 |
+| `research` | Research and reading sessions, base tools only. | 0 |
+| `work` | Separate working context, base tools only. | 0 |
+| `pi-profiles` | Working on the `pi-profile` wrapper itself. | 0 |
+
+The zero-package profiles still load `profile-badge` from `extensions/`, which
+shows the active profile in the footer.
+
+## Install a profile
+
+Profiles are directories here, not repos of their own, so install from a local
+checkout:
 
 ```sh
 pi-profile install ./profiles/marathon marathon    # campaign profile
-pi-profile install ./profiles/SoL-Pi SoL-Pi        # SoL-Pi efficiency profile
+pi-profile install ./profiles/daily daily          # interactive driver
+pi-profile create work                            # nothing saved yet: empty
 ```
+
+`install` copies the portable whitelist (`settings.json`, `DESCRIPTION.md`,
+`APPEND_SYSTEM.md`, `sol-pi.json`, `skills/`, `prompts/`, `extensions/`). Anything
+beside it must be placed by hand. Packages re-fetch from npm/git on first launch
+using `pool/` as the version reference. After installing, verify with a trivial
+headless run before trusting a campaign to it.
 
 The GitHub form needs the profile packed and pushed as its own repo first, which
 is what `pack` prepares:
@@ -17,11 +45,37 @@ cd ./pi-marathon && git init -b main && git add -A && git commit -m 'pack: marat
 pi-profile install you/pi-marathon marathon
 ```
 
-`install` copies the portable whitelist (`settings.json`, `DESCRIPTION.md`,
-`APPEND_SYSTEM.md`, `sol-pi.json`, `skills/`, `prompts/`, `extensions/`). Anything
-beside it must be placed by hand — see per-profile notes. Packages
-re-fetch from npm/git on first launch. After installing, verify with a
-trivial headless run before trusting a campaign to it.
+## Placeholders
+
+No profile here contains a personal path. Three placeholders stand in for
+machine-specific locations, documented with dummy values in `.env.example`:
+
+| Placeholder | Used by | Meaning |
+| --- | --- | --- |
+| `${AGENTS_SKILLS_DIR}` | `marathon` | Your `~/.agents/skills` store, as an exclude pattern |
+| `${PI_PROFILES_DIR}` | `research`, `work`, `pi-profiles`, `SoL-Pi` | A checkout of this repo, for `profile-badge.ts` |
+| `${ALTERWIKI_DIR}` | `alterwiki` | A checkout of the AlterWiki extension |
+
+Pi does not expand environment variables in settings, so replace each one with
+the absolute path in `~/.pi/profiles/<name>/settings.json` after installing. Pi
+does expand `~`, and the exclude pattern needs an absolute path, so
+`!~/...` will not match.
+
+## pool/ — package versions
+
+`pool/package.json` and `pool/package-lock.json` record the versions the profiles
+were last run against, including the `overrides` that pin
+`@modelcontextprotocol/sdk` and `undici` past known advisories. A fresh pool
+starts clean with:
+
+```sh
+mkdir -p ~/.pi/profiles/.shared/npm
+cp pool/package.json pool/package-lock.json ~/.pi/profiles/.shared/npm/
+cd ~/.pi/profiles/.shared/npm && npm install
+```
+
+That reproduces the tested versions instead of whatever npm resolves today. Then
+`pi-profile clean-lock --check` confirms the lockfile has no ghost entries.
 
 ## marathon — unattended campaigns
 
@@ -98,3 +152,48 @@ ships it automatically — no manual copy step.
 Config resolution is profile-scoped (verified in SoL-Pi source: it resolves
 via `getAgentDir()`), so nothing leaks into base. Provenance and trial notes
 live in `harness-configs` `SOURCES.md` under "sol-pi".
+
+## Rebuilding on a new machine
+
+What git restores: this repo (launcher, every profile definition, `pool/`
+versions), `harness-configs` (base agent settings, shared skills, `profile-badge`
+source), and `dotfiles` (Brewfile, shell config).
+
+What git cannot restore, and must be redone:
+
+1. **Credentials.** `auth.json` and `models-store.json` are symlinks to the base
+   agent dir and are never committed. Log in to each provider again. API keys
+   that live in profile files instead (`basic/web-search.json` holds an Exa key)
+   have to be re-entered.
+2. **Skills outside git.** 9 of 20 store skills live in `harness-configs`. The
+   rest come from upstream sources recorded in `~/.agents/.skill-lock.json`
+   (`mattpocock/skills`, `anthropics/skills`, `openai/skills`,
+   `obra/superpowers`, `vercel-labs/agent-skills`); reinstall them from there.
+3. **App-managed extensions.** Orca, herdr and cmux install their own extensions
+   into `~/.pi/agent/extensions/`. Reinstalling the app re-adds them.
+4. **Placeholders.** Fill in `AGENTS_SKILLS_DIR`, `PI_PROFILES_DIR` and
+   `ALTERWIKI_DIR` per `## Placeholders` above.
+
+Suggested order:
+
+```sh
+# 1. tools and dotfiles
+brew bundle --file ~/Documents/Projects/dotfiles/Brewfile
+
+# 2. base agent config (settings, shared skills, profile-badge)
+cd ~/Documents/Projects/harness-configs && ./install.sh
+
+# 3. the launcher and the package pool
+cd ~/Documents/Projects/pi-profiles
+ln -s "$PWD/bin/pi-profile" ~/.local/bin/pi-profile
+git config core.hooksPath .githooks
+mkdir -p ~/.pi/profiles/.shared/npm
+cp pool/package.json pool/package-lock.json ~/.pi/profiles/.shared/npm/
+(cd ~/.pi/profiles/.shared/npm && npm install)
+
+# 4. profiles, then credentials
+pi-profile install ./profiles/daily daily
+pi-profile install ./profiles/marathon marathon
+# ... repeat for the profiles you use, then log in to each provider once
+pi-profile daily                 # verify: one trivial prompt per profile
+```

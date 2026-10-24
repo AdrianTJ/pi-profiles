@@ -1,0 +1,24 @@
+{
+  "name": "pi-extensions",
+  "private": true,
+  "dependencies": {
+    "@bacnh85/pi-fff": "^0.9.0",
+    "@dietrichgebert/ponytail": "^5.3.2",
+    "@jqwn/pi-ask-user-question": "^0.2.0",
+    "@juicesharp/rpiv-todo": "^2.15.0",
+    "@lnilluv/pi-ralph-loop": "^2.1.1",
+    "@narumitw/pi-btw": "^0.63.0",
+    "@plicara/pi-audit-loop": "^0.4.0",
+    "@xbear/pi-goal": "^0.12.1",
+    "pi-goal-x": "^0.34.0",
+    "pi-nolo": "^1.5.0",
+    "pi-subagents": "^0.81.0",
+    "pi-tasks": "^0.2.10",
+    "pi-web-access": "^0.44.0",
+    "pi-web-lite": "^0.1.6"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "undici": "8.12.3"
+  }
+}

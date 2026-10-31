@@ -117,6 +117,10 @@ pi-profile update --extensions  # extensions only (also --self, --models; they a
 
 pi itself is updated once, through `brew upgrade` when the `pi` on PATH lives in a Homebrew Cellar (pi cannot self-update those), otherwise through `pi update --self`. Extensions then update once per agent dir, after which the pool lockfile is repaired with `clean-lock`. `--models` refreshes the model catalogs once, since `models-store.json` is shared. A failure in any step is reported at the end and the command exits non-zero, but the remaining steps still run.
 
+### Weekly updates
+
+`.github/workflows/pool-refresh.yml` runs `pool/refresh.sh` every Monday and opens (or updates) a PR moving `pool/` to the newest published versions. It checks the new lockfile installs, that `overrides` still apply, and puts the `npm audit` count in the PR body. Nothing merges on its own. Installed extensions on a machine still update only when `pi-profile update` runs there.
+
 `extensions/` is shared because tools install their own files into the base agent
 dir (a status-reporting extension, for example) and Pi only discovers
 extensions under the active agent dir. A private `extensions/` directory means a

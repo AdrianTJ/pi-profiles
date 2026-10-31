@@ -74,8 +74,9 @@ cp pool/package.json pool/package-lock.json ~/.pi/profiles/.shared/npm/
 cd ~/.pi/profiles/.shared/npm && npm install
 ```
 
-That reproduces the tested versions instead of whatever npm resolves today. Then
-`pi-profile clean-lock --check` confirms the lockfile has no ghost entries.
+That reproduces the tested versions instead of whatever npm resolves today. Then `pi-profile clean-lock --check` confirms the lockfile has no ghost entries.
+
+A weekly workflow (`pool-refresh.yml`) proposes the newest versions as a PR, built by `pool/refresh.sh`; merge it once `pi-profile update` has run them. pi rewrites the live pool's `package.json` on every update and drops `overrides`, so those pins hold only for a pool built from these files.
 
 ## marathon — unattended campaigns
 

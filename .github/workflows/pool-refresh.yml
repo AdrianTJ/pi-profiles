@@ -1,0 +1,87 @@
+name: pool-refresh
+
+# Weekly PR moving pool/ to the newest published extension versions. The PR is
+# the review gate: nothing merges on its own, and no package code runs here
+# (lock-only resolve, --ignore-scripts install). Installed extensions on a
+# machine update only through `pi-profile update`.
+#
+# Opening the PR needs "Allow GitHub Actions to create and approve pull
+# requests" (Settings > Actions > General). A PR opened with GITHUB_TOKEN does
+# not trigger ci.yml, so the checks that matter for pool/ run in this job.
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # Mondays 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  BRANCH: chore/weekly-pool-refresh
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: resolve newest versions
+        id: refresh
+        run: |
+          {
+            echo 'changes<<EOF'
+            ./pool/refresh.sh
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- pool/; then echo "changed=false" >> "$GITHUB_OUTPUT"
+          else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: verify the lockfile installs
+        if: steps.refresh.outputs.changed == 'true'
+        id: verify
+        run: |
+          work="$RUNNER_TEMP/pool"
+          mkdir -p "$work"
+          cp pool/package.json pool/package-lock.json "$work/"
+          cd "$work"
+          npm ci --ignore-scripts --no-audit --no-fund
+          # overrides must still win over whatever the new versions ask for
+          node -e '
+            const pkg = require("./package.json");
+            for (const [name, want] of Object.entries(pkg.overrides || {})) {
+              const got = require(`./node_modules/${name}/package.json`).version;
+              if (got !== want) { console.error(`${name}: override ${want} but installed ${got}`); process.exit(1); }
+            }'
+          npm audit --omit=dev --json > audit.json || true
+          node -e '
+            const m = require("./audit.json").metadata.vulnerabilities;
+            const parts = ["critical", "high", "moderate", "low"].filter((k) => m[k]).map((k) => `${m[k]} ${k}`);
+            console.log(`audit=${parts.length ? parts.join(", ") : "no known vulnerabilities"}`);
+          ' >> "$GITHUB_OUTPUT"
+
+      - name: open or update the PR
+        if: steps.refresh.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGES: ${{ steps.refresh.outputs.changes }}
+          AUDIT: ${{ steps.verify.outputs.audit }}
+        run: |
+          git config user.name "Adrian Tame"
+          git config user.email "31286933+AdrianTJ@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -q -m "chore(pool): refresh extension versions" -m "$CHANGES" -- pool/
+          # The branch belongs to this workflow and is rebuilt from main each week.
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          body="$(printf 'Weekly refresh of `pool/` to the newest published versions.\n\n```\n%s\n```\n\n- Clean install with `--ignore-scripts`: passed\n- `overrides` still applied: passed\n- `npm audit --omit=dev`: %s\n\nMerge once `pi-profile update` has run these versions without trouble.' "$CHANGES" "$AUDIT")"
+          if gh pr view "$BRANCH" --json state -q .state 2>/dev/null | grep -qx OPEN; then
+            gh pr edit "$BRANCH" --body "$body"
+          else
+            gh pr create --head "$BRANCH" --base main --title "chore(pool): weekly extension refresh" --body "$body"
+          fi

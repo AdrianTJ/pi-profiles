@@ -137,4 +137,58 @@ rm "$lock"
 "$WRAP" clean-lock --check
 "$WRAP" clean-lock >/dev/null
 
-echo "all pack/install and clean-lock checks passed"
+# --- update: stub pi and brew record each call as "<agent dir> <args>"
+stubs="$root/stubs"; calls="$root/calls.log"
+mkdir -p "$stubs" "$root/Cellar/pi-coding-agent/9.9.9/bin"
+cat > "$stubs/pi" <<'EOF'
+#!/usr/bin/env bash
+echo "${PI_CODING_AGENT_DIR:-default} $*" >> "$CALLS"
+[ -z "${PI_FAIL_DIR:-}" ] || [ "$PI_FAIL_DIR" != "${PI_CODING_AGENT_DIR:-}" ]
+EOF
+cat > "$stubs/brew" <<'EOF'
+#!/usr/bin/env bash
+echo "brew $*" >> "$CALLS"
+EOF
+chmod +x "$stubs/pi" "$stubs/brew"
+export CALLS="$calls"
+plain_path="$stubs:$PATH"
+run_update() { : > "$calls"; PATH="$plain_path" "$WRAP" update "$@" >"$root/update.out" 2>&1; }
+has() { grep -qxF "$1" "$calls" || fail "update did not call: $1 (got: $(tr '\n' ';' < "$calls"))"; }
+lacks() { if grep -q -- "$1" "$calls"; then fail "update should not call: $1"; fi; }
+
+run_update || fail "default update failed: $(cat "$root/update.out")"
+has "default update --self"
+has "$PI_PROFILE_BASE_DIR update --extensions"
+has "$PI_PROFILES_ROOT/web update --extensions"
+has "$PI_PROFILES_ROOT/clone update --extensions"
+lacks "--models"
+
+run_update --models || fail "--models update failed"
+has "default update --models"
+lacks "--self"; lacks "--extensions"
+
+run_update --extensions -na || fail "--extensions update failed"
+has "$PI_PROFILES_ROOT/web update --extensions -na"
+lacks "--self"
+
+if run_update --bogus; then fail "unknown flag accepted"; fi
+
+# a failing agent dir fails the run without skipping the others
+if PI_FAIL_DIR="$PI_PROFILES_ROOT/clone" run_update --extensions; then fail "extension failure not reported"; fi
+has "$PI_PROFILES_ROOT/web update --extensions"
+
+# ghost keys written by the per-dir runs are repaired before update returns
+mkdir -p "$(dirname "$lock")" "$(dirname "$lock")/node_modules/pi-tasks"
+printf '{"lockfileVersion":3,"packages":{"":{},"../x/node_modules/pi-tasks":{"version":"1.0.0"}}}\n' > "$lock"
+run_update --extensions || fail "update with a ghost lockfile failed"
+"$WRAP" clean-lock --check >/dev/null 2>&1 || fail "update left ghost entries in the pool lockfile"
+rm -rf "$(dirname "$lock")"
+
+# a Homebrew pi is upgraded through brew, never pi's own self-update
+mv "$stubs/pi" "$root/Cellar/pi-coding-agent/9.9.9/bin/pi"
+ln -s "../Cellar/pi-coding-agent/9.9.9/bin/pi" "$stubs/pi"
+run_update --self || fail "brew self update failed"
+has "brew upgrade pi-coding-agent"
+lacks "update --self"
+
+echo "all pack/install, clean-lock and update checks passed"

@@ -25,6 +25,7 @@ pi-profile create web --from work   # clone an existing profile's settings
 pi-profile create min --from base   # copy your main ~/.pi/agent/settings.json
 pi-profile pack web ./pi-web        # export a shareable profile folder
 pi-profile install you/pi-web       # install a shared profile (GitHub or local dir)
+pi-profile update               # update pi and every profile's extensions
 pi-profile                      # pick a profile (fzf if installed)
 pi-profile work                 # launch pi in the 'work' profile
 alias piwork='pi-profile work'  # optional per-profile aliases
@@ -97,18 +98,28 @@ model as `npm install`.
 Shared at creation (symlinked, never copied — secrets stay in one place):
 `auth.json`, `models-store.json`, `AGENTS.md`, `trust.json`, `extensions/`.
 
-Packages are shared too: every profile's `npm/` and `git/` entries are symlinks
-into one pool at `~/.pi/profiles/.shared/` (override with
-`PI_PROFILE_PACKAGES_DIR`), and the base agent dir links to the same pool. So
-all profiles and plain `pi` run the same package versions, and a single
-`pi update --extensions` updates every profile at once. Existing installs are
-migrated with:
+Packages are shared too: every profile's `npm/` and `git/` entries are symlinks into one pool at `~/.pi/profiles/.shared/` (override with `PI_PROFILE_PACKAGES_DIR`), and the base agent dir links to the same pool. So all profiles and plain `pi` run the same package versions. Existing installs are migrated with:
 
 ```sh
 pi-profile migrate-packages
 ```
 
 One caveat: pi passes the pool's symlinked `npm/` to npm as `--prefix` without resolving it, so each `pi update --extensions` rewrites the pool lockfile with `../`-relative ghost keys and a relative root version field, which `npm audit` counts as phantom vulnerabilities. `check.sh` fails on them (and on a lockfile gutted by that rewrite); `pi-profile clean-lock` repairs the lockfile from the on-disk tree.
+
+## Updating
+
+`pi update --extensions` only reads the active agent dir's `settings.json`, so a package only one profile declares is never updated from another. `pi-profile update` covers everything in one go:
+
+```sh
+pi-profile update               # pi itself, then extensions in base + every profile
+pi-profile update --extensions  # extensions only (also --self, --models; they add up)
+```
+
+pi itself is updated once, through `brew upgrade` when the `pi` on PATH lives in a Homebrew Cellar (pi cannot self-update those), otherwise through `pi update --self`. Extensions then update once per agent dir, after which the pool lockfile is repaired with `clean-lock`. `--models` refreshes the model catalogs once, since `models-store.json` is shared. A failure in any step is reported at the end and the command exits non-zero, but the remaining steps still run.
+
+### Weekly updates
+
+`.github/workflows/pool-refresh.yml` runs `pool/refresh.sh` every Monday and opens (or updates) a PR moving `pool/` to the newest published versions. It checks the new lockfile installs, that `overrides` still apply, and puts the `npm audit` count in the PR body. Nothing merges on its own. Installed extensions on a machine still update only when `pi-profile update` runs there.
 
 `extensions/` is shared because tools install their own files into the base agent
 dir (a status-reporting extension, for example) and Pi only discovers

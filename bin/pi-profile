@@ -12,6 +12,9 @@
 #   pi-profile create <name> [--from <name>|--from base]
 #   pi-profile migrate-packages       share one npm/git tree across all profiles
 #   pi-profile clean-lock [--check]   strip npm --prefix ghost keys from the pool lockfile
+#   pi-profile update [--self|--extensions|--models|--all] [--force|-a|-na]
+#                             pi once (brew upgrade for a Homebrew install), then
+#                             extensions per agent dir (base + every profile)
 #   pi-profile pack <name> [outdir]                  export a shareable profile
 #   pi-profile install <owner>/<repo>|<dir> [name]   install a shared profile
 #   pi-profile <name> [pi args...]
@@ -374,6 +377,79 @@ cmd_clean_lock() {
   '
 }
 
+# Homebrew formula that owns the pi on PATH, or nothing. pi cannot self-update a
+# Cellar install (it reports "cannot self-update this installation"), so the
+# formula is upgraded through brew instead.
+pi_brew_formula() {
+  local path
+  path="$(command -v pi)" || return 0
+  while [ -L "$path" ]; do
+    local dir; dir=$(cd "$(dirname "$path")" && pwd)
+    path=$(readlink "$path")
+    [[ $path != /* ]] && path="$dir/$path"
+  done
+  case "$path" in */Cellar/*/*) path="${path#*/Cellar/}"; printf '%s\n' "${path%%/*}" ;; esac
+}
+
+cmd_update() {
+  # Mode flags add up (--self --extensions runs both); none means pi + extensions,
+  # like `pi update --all`. Remaining flags pass through to pi.
+  local do_self=0 do_ext=0 do_models=0 force=() approve=() arg name dir formula failed=""
+  for arg in "$@"; do
+    case "$arg" in
+      --all) do_self=1; do_ext=1 ;;
+      --self) do_self=1 ;;
+      --extensions) do_ext=1 ;;
+      --models) do_models=1 ;;
+      --force) force=(--force) ;;
+      -a|--approve|-na|--no-approve) approve=("$arg") ;;
+      *) die "unsupported flag: $arg (pi-profile update takes --self|--extensions|--models|--all, plus --force|-a|-na)" ;;
+    esac
+  done
+  if [ $((do_self + do_ext + do_models)) -eq 0 ]; then do_self=1; do_ext=1; fi
+  command -v pi >/dev/null 2>&1 || die "pi not found on PATH"
+
+  if [ "$do_self" = 1 ]; then
+    echo "==> pi itself (one binary serves every profile)"
+    formula="$(pi_brew_formula)"
+    if [ -n "$formula" ]; then
+      [ ${#force[@]} -eq 0 ] || echo "pi-profile: --force is ignored for a Homebrew install" >&2
+      brew upgrade "$formula" || failed="${failed:+$failed, }pi ($formula)"
+    else
+      pi update --self ${force[@]+"${force[@]}"} || failed="${failed:+$failed, }pi"
+    fi
+  fi
+
+  if [ "$do_ext" = 1 ]; then
+    # One run per agent dir, not one total: only the active dir's settings.json
+    # is read, so packages declared by profile A are not installed by profile B.
+    local dirs=("$BASE_DIR")
+    for name in $(list_profiles); do dirs+=("$PROFILES_ROOT/$name"); done
+    for dir in "${dirs[@]}"; do
+      [ -f "$dir/settings.json" ] || continue
+      echo "==> extensions: $dir"
+      if PI_CODING_AGENT_DIR="$dir" PI_CODING_AGENT_SESSION_DIR="$SHARED_SESSIONS" \
+          pi update --extensions ${force[@]+"${force[@]}"} ${approve[@]+"${approve[@]}"}; then :
+      else failed="${failed:+$failed, }$dir"; fi
+    done
+    # Every update through the pool's symlinked npm/ writes ghost keys back into
+    # its lockfile, so repair it here rather than leave it for check.sh to find.
+    if [ -f "$SHARED_PACKAGES/npm/package-lock.json" ] && command -v node >/dev/null 2>&1; then
+      echo "==> pool lockfile"
+      cmd_clean_lock || failed="${failed:+$failed, }pool lockfile"
+    fi
+  fi
+
+  if [ "$do_models" = 1 ]; then
+    # models-store.json is symlinked into every profile, so one refresh covers all.
+    echo "==> model catalogs"
+    pi update --models ${approve[@]+"${approve[@]}"} || failed="${failed:+$failed, }model catalogs"
+  fi
+
+  [ -z "$failed" ] || die "update failed for: $failed"
+  echo "pi-profile: update finished"
+}
+
 cmd_pack() {
   local name="${1:-}" out="${2:-}"
   if [ -z "$name" ] || [ -n "${3:-}" ]; then die "usage: pi-profile pack <name> [outdir]"; fi
@@ -533,6 +609,7 @@ case "${1:-}" in
   create) shift; cmd_create "$@" ;;
   migrate-packages) shift; cmd_migrate_packages ;;
   clean-lock) shift; cmd_clean_lock "$@" ;;
+  update) shift; cmd_update "$@" ;;
   pack) shift; cmd_pack "$@" ;;
   install) shift; cmd_install "$@" ;;
   -*) die "unknown option: $1 (try: pi-profile help)" ;;

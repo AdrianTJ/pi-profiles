@@ -1,5 +1,7 @@
 # pi-profile
 
+> **Retired (November 2026).** This repo is archived and no longer maintained. Day-to-day work moved to plain pi, configured in [harness-configs](https://github.com/AdrianTJ/harness-configs). The lessons worth keeping (marathon doctrine, the SoL-Pi trial, extension collisions) are in [`docs/pi-profiles-retired.md`](https://github.com/AdrianTJ/harness-configs/blob/main/docs/pi-profiles-retired.md). The last working state is tagged `v-final`.
+
 Per-profile config directories for the [pi coding agent](https://github.com/earendil-works/pi), with shared session history and a shared package pool.
 
 A profile is a complete pi config dir (`~/.pi/profiles/<name>`) activated with
